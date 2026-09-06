@@ -1,0 +1,6 @@
+{
+  "name": "FreightHub - Freight Quote System",
+  "description": "Automated freight management, port distance matrix, and intelligent multi-modal shipping quotation engine with live calculation, tracking, and PDF export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

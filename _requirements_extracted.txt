@@ -1,0 +1,283 @@
+--- PAGE 1 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 1
+ AI Intelligent Freight Quote Generation
+ System
+ Complete M1–M3 Architecture  AI Agents  Dashboards  Process Flow  Test Data
+Project Goal
+A connected platform where a customer submits shipment information, AI/ML intelligence analyzes pricing and risks, an
+operations team reviews the result, and a final freight quote is delivered to the customer.
+Document Scope
+ Area
+Coverage
+M1
+Shipment, route and rule-based quote generation
+M2
+AI/ML freight price prediction
+M3
+Weather, customs, route and composite risk
+Users
+Customer, Freight Agent, Customs Officer, Admin
+AI
+Orchestrator, Route, Pricing, Weather, Customs and Risk Agents
+
+--- PAGE 2 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 2
+1. Users and Responsibilities
+Customer
+Creates shipment requests, uploads information/documents, requests quotes, views final quotes and accepts or rejects
+them.
+Freight Agent / Operations
+Reviews shipment requests and AI analysis, validates commercial details, modifies when required and sends the final
+quote.
+Customs Officer
+Reviews customs requirements and documents, adds flags/remarks and provides customs-related risk information.
+Admin
+Manages users, permissions, master data, system configuration, AI monitoring, analytics and audit activity.
+Role Connection
+Customer submits data → AI services analyze it → Freight Agent performs human review → Customs Officer
+participates when customs review is required → Admin manages and monitors the platform.
+
+--- PAGE 3 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 3
+2. How M1, M2 and M3 Connect
+M1 — Core Quote Foundation
+M1 creates the shipment, validates information, determines route details and calculates an initial rule-based price.
+Customer → Create Shipment → Validation → Route / Distance / ETA → Rule-Based Pricing → Draft Quote
+M2 — AI Pricing Intelligence
+M2 receives the shipment and route data created by M1. A trained ML model predicts freight price from historical
+patterns.
+M1 Data → Feature Preparation → ML Model → AI Predicted Price → Compare with Rule Price → Recommended
+Price
+M3 — Risk Intelligence
+M3 uses the same shipment context to analyze weather, customs and route risks and produces a composite risk score.
+Shipment + Route → Weather Analysis + Customs Analysis + Route Risk → Risk Engine → Overall Risk Score
+Key Connection: M1 creates operational data. M2 adds pricing intelligence. M3 adds risk intelligence. The Quote
+Engine combines all outputs.
+
+--- PAGE 4 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 4
+3. Complete End-to-End Process
+1. Customer Login
+Customer signs in and starts a quote request.
+2. Create Shipment
+Enter origin, destination, cargo, weight, volume, mode, container and documents.
+3. Validate & Store
+System validates data and creates a Shipment ID.
+4. Route Intelligence (M1)
+Determine route options, distance and estimated transit time.
+5. Rule Pricing (M1)
+Calculate base, distance, weight, fuel and handling costs.
+6. AI Pricing (M2)
+ML model predicts an intelligent freight price.
+7. Risk Intelligence (M3)
+Weather, customs and route risks are analyzed.
+8. Composite Risk
+Risk Engine calculates LOW/MEDIUM/HIGH or numeric risk.
+9. Quote Engine
+Combines shipment, route, prices and risk into a draft quote.
+10. Human Review
+Freight Agent approves, modifies, requests information or rejects.
+11. Final Quote
+Approved quote is sent to the customer.
+12. Customer Decision
+Customer accepts or rejects; lifecycle is updated.
+Master Flow
+CUSTOMER → SHIPMENT → M1 ROUTE + RULE PRICE → M2 AI PRICE → M3 WEATHER/CUSTOMS/ROUTE
+RISK → QUOTE ENGINE → AGENT REVIEW → FINAL QUOTE → CUSTOMER ACCEPT/REJECT
+
+--- PAGE 5 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 5
+4. AI Intelligence Layer
+AI Pricing Model
+ML regression predicts freight price using historical features such as distance, weight, mode, container, fuel and carrier.
+Route Intelligence
+Recommends suitable routes using distance, transit time and operational criteria.
+Weather Intelligence
+Analyzes route-related weather conditions and possible delay risk.
+Customs Intelligence
+Checks required documents, missing requirements, restrictions and customs risk.
+Risk Prediction Engine
+Combines multiple signals into one explainable composite risk score.
+AI Quote Recommendation
+Uses pricing and risk outputs to recommend a commercially sensible quote.
+
+--- PAGE 6 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 6
+5. AI Agents
+ Agent
+Responsibility
+Output
+AI Orchestrator
+Controls workflow and calls required agents
+Combined analysis state
+Route Agent
+Route options, distance and ETA
+Recommended route
+Pricing Agent
+Rule price + ML prediction comparison
+Recommended price
+Weather Agent
+Weather and delay analysis
+Weather risk
+Customs Agent
+Documents and customs requirements
+Customs risk
+Risk Agent
+Combines all risk signals
+Overall risk + recommendation
+Agent Flow
+AI ORCHESTRATOR → ROUTE AGENT → PRICING AGENT → WEATHER AGENT + CUSTOMS AGENT → RISK
+AGENT → QUOTE ENGINE
+
+--- PAGE 7 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 7
+6. Dashboard Architecture
+Dashboards are for human users. AI Agents are backend intelligence services. This distinction keeps the architecture
+clean.
+Customer Portal
+Side Navigation: Dashboard  My Shipments  Request Quote  My Quotes  Documents  Notifications  Profile
+Dashboard Content: Cards: Total Shipments, Active Requests, Pending Quotes, Accepted Quotes, Recent Activity
+Freight Agent Portal
+Side Navigation: Dashboard  Shipment Requests  All Shipments  Quote Requests  Quote Review  Generated
+Quotes  AI Pricing Analysis  Risk Analysis  Customers  Documents  Notifications  Profile
+Dashboard Content: Cards: New Requests, Pending Reviews, High Risk Shipments, Quotes Sent Today
+Customs Officer Portal
+Side Navigation: Dashboard  Pending Reviews  Assigned Shipments  Document Verification  Customs Risk Flags 
+Completed Reviews  Notifications  Profile
+Dashboard Content: Cards: Pending Reviews, Missing Documents, High Risk Cargo, Completed Today
+Admin Portal
+Side Navigation: Dashboard  Users  Customers  Freight Agents  Customs Officers  Roles & Permissions  All
+Shipments  All Quotes  AI Pricing Monitor  AI Agent Monitor  Risk Intelligence  Locations  Routes  Carriers 
+Container Types  Cargo Categories  Pricing Rules  Reports  Notifications  Settings  Audit Logs
+Dashboard Content: Cards: Total Users, Shipments, Quotes, Pending Reviews, High Risk Alerts, AI Predictions,
+Analytics
+
+--- PAGE 8 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 8
+7. How Dashboards Connect to the Workflow
+Customer Dashboard
+Request Quote → Shipment Created → Processing Status → View Final Quote → Accept/Reject
+Freight Agent Dashboard
+New Shipment → View Route + AI Price + Risk → Review/Modify → Approve → Send Quote
+Customs Dashboard
+Assigned Shipment → Verify Documents → Add Remarks → Approve/Flag → Result returns to Risk workflow
+Admin Dashboard
+Manage Users + Master Data + AI Performance + Operations + Analytics + Audit
+
+--- PAGE 9 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 9
+8. Example Test Shipment Data
+ Field
+Test Value
+Customer
+ABC Electronics Pvt Ltd
+Shipment ID
+SHP-1001
+Origin
+Chennai, India
+Destination
+Rotterdam, Netherlands
+Cargo Type
+Electronics
+Weight
+5,000 KG
+Volume
+12 CBM
+Transport Mode
+Sea
+Container
+40FT
+Distance
+8,950 KM
+Estimated Transit
+24 Days
+Example AI & Quote Results
+ Component
+Example Output
+Rule-Based Price
+■87,000
+AI Predicted Price
+■85,500
+Recommended Price
+■86,000
+Weather Risk
+30/100 — Moderate
+Customs Risk
+40/100 — Medium
+Route Risk
+20/100 — Low
+Overall Risk
+MEDIUM
+Quote Status
+PENDING REVIEW
+
+--- PAGE 10 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 10
+9. Core Test Scenarios
+ #
+Scenario
+Expected Result
+1
+Valid shipment submission
+Shipment created with SUBMITTED status
+2
+Required field missing
+Validation error
+3
+Route calculation success
+Distance and ETA stored
+4
+ML prediction success
+AI price stored
+5
+ML service unavailable
+Fallback to rule price
+6
+High weather risk
+Risk alert added
+7
+Missing customs document
+Customs flag/action required
+8
+High composite risk
+Stronger human review required
+9
+Agent modifies price
+Reason and audit record stored
+10
+Agent approves quote
+Final quote sent to customer
+11
+Customer accesses another quote
+Access denied
+12
+Customer accepts quote
+Status updated to ACCEPTED
+
+--- PAGE 11 ---
+AI Intelligent Freight Quote Generation System  Complete M1–M3 Flow
+Page 11
+10. Status Flow & Final Architecture
+Shipment Status
+DRAFT → SUBMITTED → PROCESSING → ANALYZED → QUOTED → CLOSED / CANCELLED
+Quote Status
+DRAFT → GENERATED → PENDING_REVIEW → APPROVED → SENT → ACCEPTED / REJECTED / EXPIRED
+Final Architecture
+CUSTOMER PROVIDES DATA → SYSTEM VALIDATES → M1 BUILDS ROUTE + RULE PRICE → M2 PREDICTS AI
+PRICE → M3 ANALYZES WEATHER/CUSTOMS/ROUTE RISKS → RISK ENGINE SCORES → QUOTE ENGINE
+COMBINES RESULTS → FREIGHT AGENT REVIEWS → FINAL QUOTE → CUSTOMER DECIDES → ADMIN
+MONITORS EVERYTHING
+Final Summary
+This is one connected intelligent freight quotation workflow—not three separate projects. M1 provides the foundation, M2
+adds machine-learning price intelligence, and M3 adds operational risk intelligence. AI Agents perform analysis, human
+dashboards provide control, and the Quote Engine connects all results into one final business decision.
