@@ -50,7 +50,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({ onLoginSuccess }) => {
     setPassword('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessMessage(null);
@@ -81,6 +81,27 @@ export const SignInPage: React.FC<SignInPageProps> = ({ onLoginSuccess }) => {
         return;
       }
 
+      // Sync with backend auth for M4
+      try {
+        const backendRes = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+             fullName: fullName.trim(),
+             username: username.trim(),
+             email: email.trim(),
+             password: password.trim(),
+             role: 'customer'
+          })
+        });
+        const backendData = await backendRes.json();
+        if (backendRes.ok && backendData.success && backendData.token) {
+          localStorage.setItem('freighthub_session_token', backendData.token);
+        }
+      } catch (err) {
+        console.warn('Backend sync failed', err);
+      }
+
       setSuccessMessage(`Customer Account @${res.user?.username} created successfully! Signing in...`);
       setTimeout(() => {
         onLoginSuccess(res.user!.email, res.user!.role, res.user!.fullName, res.user!.username);
@@ -95,6 +116,21 @@ export const SignInPage: React.FC<SignInPageProps> = ({ onLoginSuccess }) => {
       if (!res.success || !res.user) {
         setError(res.error || 'Invalid credentials.');
         return;
+      }
+
+      // Sync with backend auth for M4 APIs
+      try {
+        const backendRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emailOrUsername, password, role })
+        });
+        const backendData = await backendRes.json();
+        if (backendRes.ok && backendData.success && backendData.token) {
+          localStorage.setItem('freighthub_session_token', backendData.token);
+        }
+      } catch (err) {
+        console.warn('Backend login sync failed', err);
       }
 
       setSuccessMessage(`Welcome back, ${res.user.fullName}! Loading portal...`);

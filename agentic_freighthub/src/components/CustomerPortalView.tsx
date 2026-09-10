@@ -40,6 +40,8 @@ import { SavedQuotation } from '../types';
 import { useMasterData } from '../services/masterDataService';
 import { TrackingView } from './TrackingView';
 import { UserPortalShipmentWorkflow } from './UserPortalShipmentWorkflow';
+import { M4CompareQuotesView } from './M4CompareQuotesView';
+import { M4SelectedQuotesView } from './M4SelectedQuotesView';
 
 export interface CustomerPortalViewProps {
   onNavigateToTab?: (tab: string) => void;
@@ -58,7 +60,7 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({
   onUpdateQuotation,
   onViewQuotePDF,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'create' | 'my-shipments' | 'my-quotations' | 'tracking'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'create' | 'my-shipments' | 'my-quotations' | 'tracking' | 'compare-quotes' | 'selected-quotes' | 'bookings'>('overview');
   const [trackingInitialQuote, setTrackingInitialQuote] = useState<string>('');
 
   // Filter state for My Shipments & My Quotations
@@ -658,6 +660,45 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({
         >
           <Globe className="w-4 h-4" />
           <span>Shipment Tracking</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveSubTab('compare-quotes');
+            setCreatedShipment(null);
+          }}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeSubTab === 'compare-quotes' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Compare Quotes</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveSubTab('selected-quotes');
+            setCreatedShipment(null);
+          }}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeSubTab === 'selected-quotes' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          <span>Selected Quotes</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveSubTab('bookings');
+            setCreatedShipment(null);
+          }}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeSubTab === 'bookings' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Bookings</span>
         </button>
       </div>
 
@@ -1526,6 +1567,32 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* VIEW: COMPARE QUOTES */}
+      {activeSubTab === 'compare-quotes' && (
+        <M4CompareQuotesView 
+          quotations={quotations} 
+          onQuoteSelected={() => setActiveSubTab('selected-quotes')} 
+          userEmail={currentCustomer.email} 
+        />
+      )}
+
+      {/* VIEW: SELECTED QUOTES (VERIFICATIONS) */}
+      {activeSubTab === 'selected-quotes' && (
+        <M4SelectedQuotesView 
+          userEmail={currentCustomer.email} 
+        />
+      )}
+
+      {/* VIEW: BOOKINGS (PLACEHOLDER FOR NOW) */}
+      {activeSubTab === 'bookings' && (
+        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm text-center">
+          <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-lg font-black text-slate-900">My Bookings</h3>
+          <p className="text-xs text-slate-500 mt-2">Bookings feature will be available soon.</p>
+        </div>
+      )}
+
     </div>
   );
 };

@@ -6,6 +6,7 @@ import {
   getDb,
   usersCollection,
   sessionsCollection,
+  companiesCollection,
 } from '../db/database';
 
 export type PlatformRole = 'CUSTOMER' | 'FREIGHT_AGENT' | 'CUSTOMS_OFFICER' | 'ADMIN' | 'BUSINESS' | 'BROKER';
@@ -20,6 +21,7 @@ export interface DbUser {
   role: UserRole;
   status: 'active' | 'suspended' | 'pending_deletion';
   companyName?: string;
+  companyId?: string;
   phone?: string;
   generatedBy?: string;
   notes?: string;
@@ -34,6 +36,7 @@ export interface SessionUser {
   fullName: string;
   role: UserRole;
   companyName?: string;
+  companyId?: string;
 }
 
 export interface AuthResult {
@@ -122,8 +125,10 @@ export function toSessionUser(doc: UserDoc): SessionUser {
     fullName: doc.fullName,
     role: normalizeRole(doc.role),
     companyName: doc.companyName,
+    companyId: doc.companyId,
   };
 }
+
 
 export function toPublicUser(doc: UserDoc): PublicUser {
   const { passwordHash, passwordSalt, ...rest } = doc;
@@ -232,6 +237,7 @@ export interface RegisterInput {
   role?: UserRole | string;
   status?: 'active' | 'suspended' | 'pending_deletion';
   companyName?: string;
+  companyId?: string;
   phone?: string;
   notes?: string;
   generatedBy?: string;
@@ -276,6 +282,7 @@ async function buildNewUserDoc(input: RegisterInput): Promise<{ doc: UserDoc } |
     role,
     status: input.status || 'active',
     companyName: input.companyName?.trim() || undefined,
+    companyId: input.companyId?.trim() || undefined,
     phone: input.phone?.trim() || undefined,
     generatedBy: input.generatedBy?.trim() || 'Self-Registered',
     notes: input.notes?.trim() || undefined,
@@ -392,6 +399,7 @@ export interface UpdateUserInput {
   role?: UserRole | string;
   status?: 'active' | 'suspended' | 'pending_deletion';
   companyName?: string;
+  companyId?: string;
   phone?: string;
   notes?: string;
 }
@@ -459,6 +467,7 @@ export async function updateUser(
     }
     if (updates.fullName !== undefined) patch.fullName = updates.fullName.trim();
     if (updates.companyName !== undefined) patch.companyName = updates.companyName.trim() || undefined;
+    if (updates.companyId !== undefined) patch.companyId = updates.companyId.trim() || undefined;
     if (updates.phone !== undefined) patch.phone = updates.phone.trim() || undefined;
     if (updates.notes !== undefined) patch.notes = updates.notes.trim() || undefined;
 
@@ -605,15 +614,22 @@ interface SeedUser {
   createdAt: string;
   lastLoginAt?: string;
   companyName?: string;
+  companyId?: string;
   generatedBy?: string;
   phone?: string;
   notes?: string;
 }
 
+const SEED_COMPANIES = [
+  { companyId: 'COMP-001', name: 'Global Freight Networks', code: 'GFN', isActive: true, createdAt: '2026-01-10T00:00:00Z' },
+  { companyId: 'COMP-002', name: 'Oceanic Express Logistics', code: 'OEL', isActive: true, createdAt: '2026-02-15T00:00:00Z' },
+  { companyId: 'COMP-003', name: 'TransContinental Shipping', code: 'TCS', isActive: true, createdAt: '2026-03-20T00:00:00Z' },
+];
+
 const SEED_USERS: SeedUser[] = [
   { id: 'USR-001', fullName: 'Aparajita De', username: 'aparajita', email: 'aparajita@freighthub.in', password: 'user123', role: 'user', status: 'active', createdAt: '2026-08-01', lastLoginAt: '2026-08-17 08:30', companyName: 'ABC Logistics Corp', generatedBy: 'Self-Registered', phone: '+91 98765 43210', notes: 'Primary freight user enterprise account' },
   { id: 'USR-002', fullName: 'Rohit Sharma (Commercial Lead)', username: 'rohit.business', email: 'business@freighthub.in', password: 'business123', role: 'business', status: 'active', createdAt: '2026-07-15', lastLoginAt: '2026-08-16 18:45', companyName: 'Apex Commercial Pricing Ltd', generatedBy: 'Admin Generated (admin@freighthub.com)', phone: '+91 98111 22334', notes: 'Commercial pricing desk, margin governance & user quote approvals' },
-  { id: 'USR-003', fullName: 'Priya Nair (Freight Agent Lead)', username: 'priya.agent', email: 'agent@freighthub.in', password: 'agent123', role: 'freight-agent', status: 'active', createdAt: '2026-07-20', lastLoginAt: '2026-08-15 14:10', companyName: 'FreightHub Field Dispatch Desk', generatedBy: 'Admin Generated (admin@freighthub.com)', phone: '+91 98222 33445', notes: 'Vessel tracking, carrier spot bidding, route optimizer and port dispatch' },
+  { id: 'USR-003', fullName: 'Priya Nair (Freight Agent Lead)', username: 'priya.agent', email: 'agent@freighthub.in', password: 'agent123', role: 'freight-agent', status: 'active', createdAt: '2026-07-20', lastLoginAt: '2026-08-15 14:10', companyName: 'Global Freight Networks', companyId: 'COMP-001', generatedBy: 'Admin Generated (admin@freighthub.com)', phone: '+91 98222 33445', notes: 'Vessel tracking, carrier spot bidding, route optimizer and port dispatch' },
   { id: 'USR-004', fullName: 'Michael Chang', username: 'mchang.global', email: 'm.chang@pacificlogistics.com', password: 'user456', role: 'user', status: 'active', createdAt: '2026-08-10', lastLoginAt: '2026-08-14 11:20', companyName: 'Pacific Maritime Corp', generatedBy: 'Self-Registered', phone: '+65 6789 0123', notes: 'LCL & FCL regular user customer' },
   { id: 'USR-005', fullName: 'System Administrator Root', username: 'admin@freighthub.com', email: 'admin@freighthub.com', password: 'admin1234', role: 'admin', status: 'active', createdAt: '2026-06-01', lastLoginAt: '2026-08-17 08:00', companyName: 'FreightHub Global Core', generatedBy: 'System SuperAdmin', phone: '+1 (800) 555-0199', notes: 'Superuser with full master data, tariff, and user management authority across all portals' },
   { id: 'USR-006', fullName: 'Rajesh Varma (Customer Officer)', username: 'rajesh.officer', email: 'customer.officer@freighthub.in', password: 'officer123', role: 'customer-officer', status: 'active', createdAt: '2026-08-01', lastLoginAt: '2026-08-25 09:15', companyName: 'FreightHub Compliance & Customer Operations Desk', generatedBy: 'System SuperAdmin', phone: '+91 98450 11223', notes: 'Authorized customer officer for compliance validation, document audit, and quote sign-off' },
@@ -625,6 +641,14 @@ let seedCompleted = false;
 export async function ensureAuthSeed(): Promise<void> {
   if (seedCompleted) return;
   try {
+    const companies = await companiesCollection();
+    for (const comp of SEED_COMPANIES) {
+      const existing = await companies.findOne({ companyId: comp.companyId });
+      if (!existing) {
+        await companies.insertOne(comp);
+      }
+    }
+
     const users = await usersCollection();
     for (const seed of SEED_USERS) {
       const existing = (await users.findOne({
@@ -642,6 +666,7 @@ export async function ensureAuthSeed(): Promise<void> {
         role: normalizeRole(seed.role),
         status: seed.status,
         companyName: seed.companyName,
+        companyId: seed.companyId,
         phone: seed.phone,
         generatedBy: seed.generatedBy,
         notes: seed.notes,

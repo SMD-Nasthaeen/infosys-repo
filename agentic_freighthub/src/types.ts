@@ -7,7 +7,7 @@ export type ContainerSpec = '20GP' | '40HC' | '40GP' | 'LCL_SLOT' | 'EURO_PALLET
 export type CurrencyCode = 'INR' | 'USD' | 'AED' | 'EUR' | 'GBP';
 
 export type ShipmentStatus = 'DRAFT' | 'SUBMITTED' | 'PROCESSING' | 'ANALYZED' | 'QUOTED' | 'CLOSED' | 'CANCELLED';
-export type QuoteStatus = 'DRAFT' | 'GENERATED' | 'PENDING_REVIEW' | 'APPROVED' | 'SENT' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'BOOKED' | 'PENDING_BROKER_REVIEW' | 'BROKER_FINALIZED' | 'ISSUED';
+export type QuoteStatus = 'DRAFT' | 'GENERATED' | 'PENDING_REVIEW' | 'APPROVED' | 'SENT' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'BOOKED' | 'PENDING_BROKER_REVIEW' | 'BROKER_FINALIZED' | 'ISSUED' | 'REJECTED' | 'SUPERSEDED' | 'SELECTED';
 
 export interface AuditLogRecord {
   id: string;
@@ -154,6 +154,12 @@ export interface SavedQuotation {
   customsStatus?: string;
   weatherAlerts?: string[];
   auditLogs?: AuditLogRecord[];
+  // M4 Fields
+  companyId?: string;
+  version?: number;
+  parentQuoteId?: string;
+  modificationReason?: string;
+  expiresAt?: string;
 }
 
 export interface QuoteDraft {
@@ -254,4 +260,52 @@ export interface CommissionLedgerItem {
   commissionEarnedInr: number;
   status: 'SETTLED' | 'PENDING_PAYOUT' | 'IN_PROCESSING';
   date: string;
+}
+
+// M4 Interfaces
+export interface Company {
+  companyId: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface VerificationChecklist {
+  shipment: boolean;
+  cargo: boolean;
+  capacity: boolean;
+  route: boolean;
+  schedule: boolean;
+  document: boolean;
+  commercial: boolean;
+}
+
+export interface VerificationRequest {
+  requestId: string;
+  quoteId: string;
+  quoteSnapshot: SavedQuotation;
+  customerId: string;
+  companyId: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'INFO_REQUESTED' | 'REVISION_ISSUED' | 'APPROVED' | 'REJECTED';
+  checklist: VerificationChecklist;
+  missingInfoRequested: string[];
+  revisedQuoteId?: string;
+  revisedQuoteSnapshot?: SavedQuotation;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Booking {
+  bookingRef: string;
+  quoteId: string;
+  quoteVersion: number;
+  shipmentId: string;
+  companyId: string;
+  customerId: string;
+  quoteSnapshot: SavedQuotation;
+  status: 'CONFIRMED' | 'PROCESSING' | 'READY_FOR_DISPATCH' | 'COMPLETED' | 'CANCELLED';
+  verificationRequestId?: string;
+  createdAt: string;
+  updatedAt?: string;
 }

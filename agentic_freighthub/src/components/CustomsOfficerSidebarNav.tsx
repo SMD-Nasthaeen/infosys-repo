@@ -33,7 +33,8 @@ export type CustomsOfficerTab =
   | 'weather-radar'
   | 'ml-pricing'
   | 'tracking'
-  | 'signoff-audit';
+  | 'signoff-audit'
+  | 'm4-verifications';
 
 interface CustomsOfficerSidebarNavProps {
   activeTab: CustomsOfficerTab;
@@ -66,6 +67,18 @@ export const CustomsOfficerSidebarNav: React.FC<CustomsOfficerSidebarNavProps> =
   officerEmail = 'customer.officer@freighthub.in',
 }) => {
   const navGroups: NavGroup[] = [
+    {
+      groupName: 'M4 CUSTOMS CLEARANCE',
+      items: [
+        {
+          id: 'm4-verifications',
+          label: 'M4 Verification Requests',
+          subLabel: 'Review customer documents & sign-off',
+          icon: FileCheck2,
+          highlight: true,
+        }
+      ]
+    },
     {
       groupName: 'VERIFICATION & EDITING DESK',
       items: [

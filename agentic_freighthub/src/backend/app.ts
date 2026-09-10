@@ -8,6 +8,7 @@ import authRouter from "./routes/authRoutes";
 import { attachAuth } from "./middleware/auth";
 import { isDbReady } from "./db/database";
 import { ensureAuthSeed } from "./auth/authService";
+import { m4Router } from "./routes/m4Routes";
 
 export const app = express();
 
@@ -60,6 +61,9 @@ app.use("/", milestone3Router);
 // Authentication & User Administration Routes
 app.use("/api/auth", authRouter);
 app.use("/auth", authRouter);
+
+// M4 Routes
+app.use(m4Router);
 
 // Seed default platform accounts on first boot (no-op when already present)
 ensureAuthSeed().catch(() => undefined);

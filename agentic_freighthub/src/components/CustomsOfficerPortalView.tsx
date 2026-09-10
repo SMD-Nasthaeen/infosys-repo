@@ -70,6 +70,7 @@ import {
 import { assessShipmentCompositeRisk } from '../backend/risk/riskEngine';
 import { predictMLPrice, compareRuleVsMLPricing } from '../backend/pricing/mlPricingService';
 import { TrackingView } from './TrackingView';
+import { M4CustomsVerificationView } from './M4CustomsVerificationView';
 import { PORTS_AND_HUBS } from '../data/freightData';
 import { formatCurrency } from '../utils/calculator';
 
@@ -1468,7 +1469,14 @@ export const CustomsOfficerPortalView: React.FC<CustomsOfficerPortalViewProps> =
           )}
 
           {/* ===================================================================== */}
-          {/* VIEW 9: COMPLIANCE AUDIT TRAIL                                       */}
+          {/* VIEW 9: M4 CUSTOMS VERIFICATIONS                                      */}
+          {/* ===================================================================== */}
+          {activeTab === 'm4-verifications' && (
+            <M4CustomsVerificationView />
+          )}
+
+          {/* ===================================================================== */}
+          {/* VIEW 10: COMPLIANCE AUDIT TRAIL                                       */}
           {/* ===================================================================== */}
           {activeTab === 'signoff-audit' && (
             <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6 animate-in fade-in">

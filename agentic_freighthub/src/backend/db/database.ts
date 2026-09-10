@@ -63,6 +63,9 @@ export const riskAlertsCollection = () => collection('risk_alerts');
 export const mlPredictionsCollection = () => collection('ml_predictions');
 export const agentRunsCollection = () => collection('agent_runs');
 export const documentsCollection = () => collection('documents');
+export const companiesCollection = () => collection('companies');
+export const verificationRequestsCollection = () => collection('verification_requests');
+export const bookingsCollection = () => collection('bookings');
 
 async function ensureIndexes(): Promise<void> {
   const db = await getDb();
@@ -85,11 +88,20 @@ async function ensureIndexes(): Promise<void> {
     await db.collection('risk_assessments').createIndex({ shipment_id: 1 });
     await db.collection('agent_runs').createIndex({ runId: 1 }, { unique: true });
     await db.collection('agent_runs').createIndex({ shipmentId: 1 });
+    await db.collection('companies').createIndex({ companyId: 1 }, { unique: true });
+    await db.collection('verification_requests').createIndex({ requestId: 1 }, { unique: true });
+    await db.collection('verification_requests').createIndex({ quoteId: 1 });
+    await db.collection('verification_requests').createIndex({ companyId: 1 });
+    await db.collection('bookings').createIndex({ bookingRef: 1 }, { unique: true });
+    await db.collection('bookings').createIndex({ quoteId: 1 });
+    await db.collection('bookings').createIndex({ companyId: 1 });
+    await db.collection('bookings').createIndex({ verificationRequestId: 1 });
     console.log('[+] MongoDB indexes ensured');
   } catch (err: any) {
     console.warn('[!] Index creation warning:', err.message);
   }
 }
+
 
 // Counters for human-readable IDs (SHP-1001, Q-2001, ...)
 export async function nextSequence(name: string, prefix: string, pad = 4): Promise<string> {
