@@ -64,6 +64,7 @@ export function verifyPassword(password: string, hash: string, salt: string): bo
 export function normalizeRole(role: UserRole | string): UserRole {
   const r = (role || 'user').toLowerCase();
   if (r === 'shipper') return 'user';
+  if (r === 'customer') return 'user';
   if (r === 'customer-officer') return 'customs-officer';
   return r as UserRole;
 }
@@ -158,7 +159,8 @@ export function rolesCompatible(queryRole: string | undefined, userRole: UserRol
   const u = normalizeRole(userRole);
   if (r === u) return true;
   if (r === 'shipper') return u === 'user';
-  if (r === 'user') return u === 'shipper';
+  if (r === 'user') return u === 'shipper' || u === 'customer';
+  if (r === 'customer') return u === 'user' || u === 'customer';
   if (r === 'business') return u === 'broker';
   if (r === 'freight-agent') return u === 'broker';
   if (r === 'broker') return u === 'business' || u === 'freight-agent';

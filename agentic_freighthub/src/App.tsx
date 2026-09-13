@@ -28,6 +28,10 @@ import { QuotationAgentFloatingModal } from './components/QuotationAgentFloating
 import { CustomsOfficerPortalView } from './components/CustomsOfficerPortalView';
 import { Milestone3RiskIntelligenceWorkspace } from './components/Milestone3RiskIntelligenceWorkspace';
 import { CoreTestScenariosView } from './components/CoreTestScenariosView';
+import { M4CustomerDocumentsView } from './components/M4CustomerDocumentsView';
+import { M4AgentDocumentReview } from './components/M4AgentDocumentReview';
+import { M4CompareQuotesView } from './components/M4CompareQuotesView';
+import { M4SelectedQuotesView } from './components/M4SelectedQuotesView';
 import { userService } from './services/userService';
 
 import { QuoteFormState, SavedQuotation, QuoteStatus, CargoLineItem, UserRole } from './types';
@@ -80,17 +84,30 @@ export default function App() {
 
   // Navigation State
   const [activePublicTab, setActivePublicTab] = useState<string>('workspace');
-  const [workspaceView, setWorkspaceView] = useState<'dashboard' | 'calculation' | 'routes' | 'tracking' | 'quotations' | 'test-scenarios'>('calculation');
+  const [workspaceView, setWorkspaceView] = useState<'dashboard' | 'calculation' | 'routes' | 'tracking' | 'quotations' | 'test-scenarios' | 'customer-documents' | 'agent-documents' | 'compare-quotes' | 'selected-quotes'>('calculation');
   const [adminSubTab, setAdminSubTab] = useState<AdminTab>('home');
   const [agentSubTab, setAgentSubTab] = useState<FreightAgentTab>('operations-overview');
 
-  // Quotation History State
-  const [quotations, setQuotations] = useState<SavedQuotation[]>(INITIAL_QUOTATIONS);
+  // Quotation History State - persisted to localStorage for cross-session sharing
+  const [quotations, setQuotations] = useState<SavedQuotation[]>(() => {
+    try {
+      const saved = localStorage.getItem('freighthub_quotations');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [selectedQuoteForPDF, setSelectedQuoteForPDF] = useState<SavedQuotation | null>(null);
   const [quoteFeedback, setQuoteFeedback] = useState<string | null>(null);
   const [isGeneratingQuote, setIsGeneratingQuote] = useState<boolean>(false);
   const [isEstimateCalculated, setIsEstimateCalculated] = useState<boolean>(false);
   const [isAgentModalOpen, setIsAgentModalOpen] = useState<boolean>(false);
+  const [formUploadedFiles, setFormUploadedFiles] = useState<Array<{ fileUrl: string; fileName: string; fileSize: number }>>([]);
+
+  // Persist quotations to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('freighthub_quotations', JSON.stringify(quotations));
+  }, [quotations]);
 
   // Feedback Popup State (middle screen pop up box)
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState<boolean>(false);
@@ -99,13 +116,37 @@ export default function App() {
   // Form State initialized to empty/none state
   const [formData, setFormData] = useState<QuoteFormState>(createEmptyFormState());
 
+  // Auto-fill contact details from user profile when authenticated
+  useEffect(() => {
+    if (isAuthenticated && userEmail && !formData.fullName && !formData.email) {
+      const userAccount = userService.getUserByEmailOrUsername(userEmail);
+      if (userAccount) {
+        setFormData((prev) => ({
+          ...prev,
+          fullName: userAccount.fullName || userName || '',
+          companyName: userAccount.companyName || '',
+          email: userEmail,
+          country: prev.country || 'India',
+        }));
+      }
+    }
+  }, [isAuthenticated, userEmail, userName]);
+
   // Handle user login / sign in -> resets form state to none
   const handleLoginSuccess = (email: string, role: UserRole = 'user', fullName?: string, username?: string) => {
     setUserEmail(email);
     setUserRole(role);
     setUserName(fullName || username || email.split('@')[0] || 'User');
     setIsAuthenticated(true);
-    setFormData(createEmptyFormState()); // Reset all inputs on login
+    // Auto-fill contact details from logged-in user profile
+    const userAccount = userService.getUserByEmailOrUsername(email);
+    setFormData({
+      ...createEmptyFormState(),
+      fullName: fullName || userAccount?.fullName || username || email.split('@')[0] || '',
+      companyName: userAccount?.companyName || '',
+      email: email,
+      country: 'India', // Default, can be updated by user
+    });
     setQuoteFeedback(null);
     setIsEstimateCalculated(false);
     setIsAgentModalOpen(false);
@@ -129,12 +170,19 @@ export default function App() {
       const next = exists
         ? prev.map((q) => (q.id === updatedQuote.id ? updatedQuote : q))
         : [updatedQuote, ...prev];
-      try {
-        localStorage.setItem('freighthub_saved_quotations_v1', JSON.stringify(next));
-      } catch (err) {
-        console.error('Failed to persist quotation update:', err);
-      }
       return next;
+    });
+  };
+
+  const handleDeleteQuotation = (quoteId: string) => {
+    setQuotations((prev) => {
+      return prev.filter((q) => q.id !== quoteId);
+    });
+  };
+
+  const handleDeleteMultipleQuotations = (quoteIds: string[]) => {
+    setQuotations((prev) => {
+      return prev.filter((q) => !quoteIds.includes(q.id));
     });
   };
 
@@ -265,75 +313,79 @@ export default function App() {
     }
   };
 
-  // Generate Quotation Action (Submitted by Shipper -> Enters Broker Review Queue)
+  // Generate Quotation Action - creates quotes from multiple freight companies
+  const handleFormUploadDocument = async (file: File): Promise<{ fileUrl: string; fileName: string } | null> => {
+    try {
+      const token = localStorage.getItem('freighthub_session_token') || '';
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formDataUpload,
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        const newFile = { fileUrl: result.fileUrl, fileName: file.name, fileSize: file.size };
+        setFormUploadedFiles(prev => [...prev, newFile]);
+        return { fileUrl: result.fileUrl, fileName: file.name };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleGenerateQuotation = () => {
     if (isGeneratingQuote) return;
     setIsGeneratingQuote(true);
 
-    const newQuoteId = `QT-2026-00${935 + quotations.length - 3}`;
-    const newQuote: SavedQuotation = {
-      id: newQuoteId,
-      shipperName: formData.fullName || userName || 'Aparajita',
-      companyName: formData.companyName || 'Sharma Logistics',
-      routeSummary: `${formData.originPortCode || 'BOM'} -> ${formData.destinationPortCode || 'AEJEA'}`,
-      originCode: formData.originPortCode || 'BOM',
-      destinationCode: formData.destinationPortCode || 'AEJEA',
-      transportMode: formData.transportMode,
-      oceanLoadType: formData.oceanLoadType,
-      tariffAmount: liveBreakdown.grandTotal,
-      currency: formData.currency,
-      status: 'PENDING_REVIEW', // Automatically submitted to Broker for review & optimization
-      createdAt: new Date().toISOString().split('T')[0],
-      cargoSummary: liveBreakdown.cargoCountSummary,
-      breakdown: liveBreakdown,
-      formData: { ...formData },
-    };
+    const companies = [
+      { companyId: 'COMP-001', name: 'Global Freight Networks', margin: 1.0 },
+      { companyId: 'COMP-002', name: 'Oceanic Express Logistics', margin: 1.05 },
+      { companyId: 'COMP-003', name: 'TransContinental Shipping', margin: 0.95 },
+    ];
 
-    // Link the customer-generated shipment to a Customs compliance case (M3 workflow):
-    // the case lands in the Customs Officer queue with this Shipment ID & document checklist.
-    const shipmentRefId = `SHP-${newQuoteId.replace(/\D/g, '') || Date.now().toString().slice(-6)}`;
-    const customsCheck = validateCustomsCompliance({
-      shipmentId: shipmentRefId,
-      quoteId: newQuoteId,
-      originCountry: (newQuote.originCode || 'IN').slice(0, 2).toUpperCase(),
-      destCountry: (newQuote.destinationCode || 'AE').slice(0, 2).toUpperCase(),
-      originPort: newQuote.originCode || 'INNSA',
-      destPort: newQuote.destinationCode || 'AEJEA',
-      hsCode: formData.cargoItems?.[0]?.hsCode || '',
-      commodity: formData.cargoItems?.[0]?.commodityDescription || 'General Cargo',
-      incoterm: formData.incoterm,
-      declaredValueInr: formData.declaredValue,
-      isHazmat: formData.hazardousMaterials,
+    const basePrice = liveBreakdown.grandTotal;
+    const newQuotes: SavedQuotation[] = [];
+
+    companies.forEach((company, index) => {
+      const quoteId = `QT-${Date.now()}-${index + 1}`;
+      const adjustedPrice = Math.round(basePrice * company.margin);
+
+      const newQuote: SavedQuotation = {
+        id: quoteId,
+        shipperName: formData.fullName || userName || '',
+        companyName: company.name,
+        companyId: company.companyId,
+        routeSummary: `${formData.originPortCode || 'BOM'} -> ${formData.destinationPortCode || 'AEJEA'}`,
+        originCode: formData.originPortCode || 'BOM',
+        destinationCode: formData.destinationPortCode || 'AEJEA',
+        transportMode: formData.transportMode,
+        oceanLoadType: formData.oceanLoadType,
+        tariffAmount: adjustedPrice,
+        currency: formData.currency,
+        status: 'ISSUED',
+        createdAt: new Date().toISOString().split('T')[0],
+        cargoSummary: liveBreakdown.cargoCountSummary,
+        breakdown: { ...liveBreakdown, grandTotal: adjustedPrice },
+        formData: { ...formData },
+        version: 1,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+
+      newQuotes.push(newQuote);
     });
 
-    const newQuoteWithCustoms: SavedQuotation = {
-      ...newQuote,
-      shipmentId: shipmentRefId,
-      customsCaseId: customsCheck.id,
-      customsStatus: customsCheck.status,
-      customsFlags: [...(newQuote.customsFlags || []), `CUSTOMS_CASE:${customsCheck.id}`],
-      auditLogs: [
-        ...(newQuote.auditLogs || []),
-        {
-          id: `AUD-${Date.now()}`,
-          quoteId: newQuoteId,
-          action: 'CUSTOMS_CASE_CREATED',
-          modifiedBy: 'System - Customs Agent',
-          reason: `Compliance case ${customsCheck.id} auto-created for shipment ${shipmentRefId}`,
-          newValue: customsCheck.status,
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    };
+    // REPLACE all previous quotes - only show the new 3
+    setQuotations(newQuotes);
 
-    handleUpdateQuotation(newQuoteWithCustoms);
-    setSelectedQuoteForPDF(newQuoteWithCustoms);
-    setFeedbackQuoteId(newQuoteId);
     setQuoteFeedback(
-      `Quotation ${newQuoteId} submitted! Transferred directly to our freight brokerage team for rate review, carrier confirmation, and final dispatch.`
+      `Generated ${newQuotes.length} company quotes for ${formData.originPortCode} → ${formData.destinationPortCode}. Go to "Compare Quotes" to review and select.`
     );
     setIsGeneratingQuote(false);
     setIsEstimateCalculated(true);
+    setWorkspaceView('compare-quotes');
   };
 
   const handleCloseQuotePDFModal = () => {
@@ -531,6 +583,7 @@ export default function App() {
                     setWorkspaceView(view);
                   }}
                   quotationCount={quotations.length}
+                  userRole={userRole}
                 />
               </div>
 
@@ -538,30 +591,19 @@ export default function App() {
               <div className="lg:col-span-9">
                 {/* CALCULATION VIEW */}
                 {workspaceView === 'calculation' && (
-                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-                    {/* Middle Calculation Form (Scrollable) */}
-                    <div className="xl:col-span-8">
-                      <CalculationForm
-                        formData={formData}
-                        onChangeForm={handleUpdateForm}
-                        onAddCargoItem={handleAddCargoItem}
-                        onRemoveCargoItem={handleRemoveCargoItem}
-                        onUpdateCargoItem={handleUpdateCargoItem}
-                        onGenerateQuotation={() => setIsAgentModalOpen(true)}
-                        onResetForm={handleResetForm}
-                        isGenerating={isGeneratingQuote}
-                      />
-                    </div>
-
-                    {/* Right Live Estimation Box (Fixed in place when scrolling) */}
-                    <div className="xl:col-span-4 xl:sticky xl:top-20 z-10">
-                      <LiveEstimatePanel
-                        breakdown={liveBreakdown}
-                        onOpenAgentCalculation={() => setIsAgentModalOpen(true)}
-                        isEstimateCalculated={isEstimateCalculated}
-                        onViewGeneratedQuote={() => setIsAgentModalOpen(true)}
-                      />
-                    </div>
+                  <div>
+                    <CalculationForm
+                      formData={formData}
+                      onChangeForm={handleUpdateForm}
+                      onAddCargoItem={handleAddCargoItem}
+                      onRemoveCargoItem={handleRemoveCargoItem}
+                      onUpdateCargoItem={handleUpdateCargoItem}
+                      onGenerateQuotation={handleGenerateQuotation}
+                      onResetForm={handleResetForm}
+                      isGenerating={isGeneratingQuote}
+                      onUploadDocument={handleFormUploadDocument}
+                      uploadedFiles={formUploadedFiles}
+                    />
                   </div>
                 )}
 
@@ -610,11 +652,48 @@ export default function App() {
                   />
                 )}
 
+                {/* M4 COMPARE QUOTES VIEW */}
+                {workspaceView === 'compare-quotes' && (
+                  <M4CompareQuotesView
+                    quotations={quotations}
+                    onQuoteSelected={() => {
+                      setWorkspaceView('selected-quotes');
+                    }}
+                    userEmail={userEmail}
+                    onUpdateQuotation={handleUpdateQuotation}
+                    onDeleteQuotation={handleDeleteQuotation}
+                    onDeleteMultipleQuotations={handleDeleteMultipleQuotations}
+                    uploadedFiles={formUploadedFiles}
+                  />
+                )}
+
+                {/* M4 SELECTED QUOTES VIEW */}
+                {workspaceView === 'selected-quotes' && (
+                  <M4SelectedQuotesView
+                    userEmail={userEmail}
+                  />
+                )}
+
                 {/* CORE TEST SCENARIOS VIEW */}
                 {workspaceView === 'test-scenarios' && (
                   <CoreTestScenariosView
                     quotations={quotations}
                     onUpdateQuotation={handleUpdateQuotation}
+                  />
+                )}
+
+                {/* CUSTOMER DOCUMENTS VIEW */}
+                {workspaceView === 'customer-documents' && (
+                  <M4CustomerDocumentsView
+                    userEmail={userEmail}
+                    userId={currentUserAccount?.id || ''}
+                  />
+                )}
+
+                {/* AGENT DOCUMENT REVIEW VIEW */}
+                {workspaceView === 'agent-documents' && (
+                  <M4AgentDocumentReview
+                    companyId={currentUserAccount?.companyId || 'COMP-001'}
                   />
                 )}
               </div>

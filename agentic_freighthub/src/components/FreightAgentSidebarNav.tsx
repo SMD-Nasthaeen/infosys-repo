@@ -7,7 +7,8 @@ import {
   Anchor,
   Radio,
   FileCheck2,
-  Navigation
+  Navigation,
+  FolderOpen
 } from 'lucide-react';
 
 export type FreightAgentTab =
@@ -16,7 +17,8 @@ export type FreightAgentTab =
   | 'route-optimizer'
   | 'carrier-spot-bidding'
   | 'cargo-tracking'
-  | 'customs-dispatch';
+  | 'customs-dispatch'
+  | 'document-review';
 
 interface FreightAgentSidebarNavProps {
   activeTab: FreightAgentTab;
@@ -85,6 +87,12 @@ export const FreightAgentSidebarNav: React.FC<FreightAgentSidebarNavProps> = ({
       label: 'Customs & CFS Gatepass',
       subLabel: 'Port terminal dispatch docs',
       icon: FileCheck2,
+    },
+    {
+      id: 'document-review',
+      label: 'Document Review',
+      subLabel: 'Review & verify customer documents',
+      icon: FolderOpen,
     },
   ];
 

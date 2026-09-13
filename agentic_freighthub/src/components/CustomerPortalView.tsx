@@ -27,7 +27,8 @@ import {
   Search,
   Filter,
   Eye,
-  RefreshCw
+  RefreshCw,
+  Bell
 } from 'lucide-react';
 import {
   runRouteAgent,
@@ -42,6 +43,7 @@ import { TrackingView } from './TrackingView';
 import { UserPortalShipmentWorkflow } from './UserPortalShipmentWorkflow';
 import { M4CompareQuotesView } from './M4CompareQuotesView';
 import { M4SelectedQuotesView } from './M4SelectedQuotesView';
+import { M4CustomerBookingsView } from './M4CustomerBookingsView';
 
 export interface CustomerPortalViewProps {
   onNavigateToTab?: (tab: string) => void;
@@ -62,6 +64,39 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'create' | 'my-shipments' | 'my-quotations' | 'tracking' | 'compare-quotes' | 'selected-quotes' | 'bookings'>('overview');
   const [trackingInitialQuote, setTrackingInitialQuote] = useState<string>('');
+  const [previousQuotationsCount, setPreviousQuotationsCount] = useState(quotations.length);
+  const [unreadNotifications, setUnreadNotifications] = useState<any[]>([]);
+
+  // Auto-navigate to Compare Quotes when new quotes are generated
+  useEffect(() => {
+    if (quotations.length > previousQuotationsCount) {
+      setActiveSubTab('compare-quotes');
+    }
+    setPreviousQuotationsCount(quotations.length);
+  }, [quotations.length, previousQuotationsCount]);
+
+  // Fetch notifications (verifications that are APPROVED or REJECTED)
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem('freighthub_session_token') || '';
+        if (!token) return;
+        const res = await fetch('/api/verifications', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          const notifications = data.data.filter((v: any) => v.status === 'APPROVED' || v.status === 'REJECTED');
+          setUnreadNotifications(notifications);
+        }
+      } catch (err) {
+        console.error('Failed to fetch notifications', err);
+      }
+    };
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10000); // Poll every 10s
+    return () => clearInterval(interval);
+  }, []);
 
   // Filter state for My Shipments & My Quotations
   const [shipmentFilterStatus, setShipmentFilterStatus] = useState<string>('ALL');
@@ -701,6 +736,31 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({
           <span>Bookings</span>
         </button>
       </div>
+
+      {/* Unread Verifications Notification Banner */}
+      {unreadNotifications.length > 0 && (
+        <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 rounded-full text-indigo-600 relative">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+            </div>
+            <div>
+              <h4 className="font-bold text-indigo-900">You have {unreadNotifications.length} update(s) from Customs!</h4>
+              <p className="text-xs text-indigo-700">Check your Selected Quotes or Bookings tab for details.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              const hasApproved = unreadNotifications.some(n => n.status === 'APPROVED');
+              setActiveSubTab(hasApproved ? 'bookings' : 'selected-quotes');
+            }}
+            className="px-4 py-1.5 bg-white text-indigo-600 border border-indigo-200 rounded-full text-xs font-bold hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer"
+          >
+            View Updates
+          </button>
+        </div>
+      )}
 
       {/* VIEW 1: OVERVIEW */}
       {activeSubTab === 'overview' && (
@@ -1586,10 +1646,8 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({
 
       {/* VIEW: BOOKINGS (PLACEHOLDER FOR NOW) */}
       {activeSubTab === 'bookings' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm text-center">
-          <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-black text-slate-900">My Bookings</h3>
-          <p className="text-xs text-slate-500 mt-2">Bookings feature will be available soon.</p>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <M4CustomerBookingsView />
         </div>
       )}
 

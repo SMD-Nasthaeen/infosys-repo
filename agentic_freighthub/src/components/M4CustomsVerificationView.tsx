@@ -1,6 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { VerificationRequest, VerificationChecklist } from '../types';
-import { CheckCircle2, XCircle, FileText, AlertCircle, Clock, Check, Loader2, Info } from 'lucide-react';
+import { CheckCircle2, XCircle, FileText, AlertCircle, Clock, Check, Loader2, Info, Shield, RefreshCw, Eye, Image, File as FileIcon } from 'lucide-react';
+
+interface SelectedQuote {
+  selectedQuoteId: string;
+  quoteId: string;
+  customerId: string;
+  customerEmail: string;
+  companyName: string;
+  companyId: string;
+  originCode: string;
+  destinationCode: string;
+  transportMode: string;
+  tariffAmount: number;
+  currency: string;
+  shipperEmail: string;
+  status: string;
+  agentRemarks: string;
+  reviewedBy: string;
+  reviewedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const M4CustomsVerificationView: React.FC = () => {
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
@@ -9,6 +30,70 @@ export const M4CustomsVerificationView: React.FC = () => {
   const [actionReason, setActionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Selected quotes for customs approval
+  const [selectedQuotes, setSelectedQuotes] = useState<SelectedQuote[]>([]);
+  const [selectedQuoteDetail, setSelectedQuoteDetail] = useState<SelectedQuote | null>(null);
+  const [customsActionReason, setCustomsActionReason] = useState('');
+  const [customsSubmitting, setCustomsSubmitting] = useState(false);
+  const [quoteDocuments, setQuoteDocuments] = useState<any[]>([]);
+
+  const fetchSelectedQuotes = async () => {
+    try {
+      const token = localStorage.getItem('freighthub_session_token') || '';
+      const response = await fetch('/api/selected-quotes', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setSelectedQuotes(result.data || []);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCustomsAction = async (selectedQuoteId: string, action: 'CUSTOMS_APPROVED' | 'REJECTED') => {
+    setCustomsSubmitting(true);
+    try {
+      const token = localStorage.getItem('freighthub_session_token') || '';
+      const response = await fetch(`/api/selected-quotes/${selectedQuoteId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: action, agentRemarks: customsActionReason || `Customs ${action === 'CUSTOMS_APPROVED' ? 'approved' : 'rejected'}` })
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        fetchSelectedQuotes();
+        setSelectedQuoteDetail(null);
+        setCustomsActionReason('');
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCustomsSubmitting(false);
+    }
+  };
+
+  const fetchQuoteDocuments = async (selectedQuoteId: string) => {
+    try {
+      const token = localStorage.getItem('freighthub_session_token') || '';
+      const response = await fetch(`/api/selected-quotes/${selectedQuoteId}/documents`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setQuoteDocuments(result.data || []);
+      } else {
+        setQuoteDocuments([]);
+      }
+    } catch {
+      setQuoteDocuments([]);
+    }
+  };
 
   const fetchRequests = async () => {
     try {
@@ -30,6 +115,7 @@ export const M4CustomsVerificationView: React.FC = () => {
 
   useEffect(() => {
     fetchRequests();
+    fetchSelectedQuotes();
     const interval = setInterval(fetchRequests, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -43,6 +129,12 @@ export const M4CustomsVerificationView: React.FC = () => {
       }
     }
   }, [requests, selectedRequest]);
+
+  useEffect(() => {
+    if (selectedQuoteDetail) {
+      fetchQuoteDocuments(selectedQuoteDetail.selectedQuoteId);
+    }
+  }, [selectedQuoteDetail]);
 
   const handleToggleChecklistItem = async (key: keyof VerificationChecklist) => {
     if (!selectedRequest) return;
@@ -129,10 +221,58 @@ export const M4CustomsVerificationView: React.FC = () => {
   const activeRequests = requests.filter(r => r.status === 'PENDING' || r.status === 'IN_PROGRESS');
   const completedRequests = requests.filter(r => r.status !== 'PENDING' && r.status !== 'IN_PROGRESS');
 
+  // Selected quotes ready for customs review (status = UNDER_REVIEW)
+  const quotesForCustomsReview = selectedQuotes.filter(q => q.status === 'UNDER_REVIEW');
+  const quotesApprovedByCustoms = selectedQuotes.filter(q => q.status === 'CUSTOMS_APPROVED' || q.status === 'APPROVED' || q.status === 'REJECTED');
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in">
       {/* Left Column: Queue */}
       <div className="lg:col-span-4 space-y-4">
+        {/* Selected Quotes for Customs Approval */}
+        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-slate-900 text-sm flex items-center gap-2">
+              <Shield className="w-4 h-4 text-amber-600" />
+              Customs Quote Approval
+            </h3>
+            <button onClick={fetchSelectedQuotes} className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          
+          <div className="space-y-2">
+            {quotesForCustomsReview.length === 0 ? (
+              <div className="p-4 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl">
+                No quotes pending customs review
+              </div>
+            ) : (
+              quotesForCustomsReview.map((item) => (
+                <button
+                  key={item.selectedQuoteId}
+                  onClick={() => { setSelectedQuoteDetail(item); setCustomsActionReason(''); }}
+                  className={`w-full text-left p-3 rounded-2xl border transition-all ${
+                    selectedQuoteDetail?.selectedQuoteId === item.selectedQuoteId
+                      ? 'border-amber-500 bg-amber-50 shadow-md ring-1 ring-amber-500/20'
+                      : 'border-amber-200 bg-amber-50 hover:border-amber-400'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <span className="font-mono text-xs font-black text-amber-900">{item.quoteId}</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 uppercase">
+                      FOR CUSTOMS
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-amber-700">{item.originCode} → {item.destinationCode}</div>
+                  <div className="text-[10px] text-amber-600 font-bold">{item.currency} {item.tariffAmount?.toLocaleString()}</div>
+                  <div className="text-[10px] text-amber-500">Customer: {item.customerEmail}</div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Existing Verification Queue */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
           <h3 className="font-black text-slate-900 text-sm flex items-center gap-2">
             <FileText className="w-4 h-4 text-blue-600" />
@@ -179,14 +319,171 @@ export const M4CustomsVerificationView: React.FC = () => {
 
       {/* Right Column: Details */}
       <div className="lg:col-span-8">
-        {!selectedRequest ? (
+        {!selectedRequest && !selectedQuoteDetail ? (
           <div className="bg-slate-50 border border-slate-200 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center text-center space-y-3 h-full min-h-[400px]">
             <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-slate-200 flex items-center justify-center text-slate-400">
               <FileText className="w-6 h-6" />
             </div>
             <div>
               <p className="text-sm font-bold text-slate-600">Select a request</p>
-              <p className="text-xs text-slate-400">Choose a verification request from the queue to review documents and sign off.</p>
+              <p className="text-xs text-slate-400">Choose a verification request or quote from the queue to review.</p>
+            </div>
+          </div>
+        ) : selectedQuoteDetail ? (
+          /* Selected Quote Detail View for Customs */
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100 bg-amber-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-lg font-black text-slate-900">{selectedQuoteDetail.quoteId}</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                      PENDING CUSTOMS REVIEW
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Customer: {selectedQuoteDetail.customerEmail} | Company: {selectedQuoteDetail.companyName}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedQuoteDetail(null)}
+                  className="text-xs font-bold text-slate-500 hover:text-slate-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Route & Price */}
+              <div>
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Shipment Details</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Origin</span>
+                    <span className="text-sm font-black text-slate-900">{selectedQuoteDetail.originCode}</span>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Destination</span>
+                    <span className="text-sm font-black text-slate-900">{selectedQuoteDetail.destinationCode}</span>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Mode</span>
+                    <span className="text-sm font-black text-slate-900 uppercase">{selectedQuoteDetail.transportMode}</span>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Price</span>
+                    <span className="text-sm font-black text-blue-700">{selectedQuoteDetail.currency} {selectedQuoteDetail.tariffAmount?.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Info */}
+              <div>
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Customer Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Email</span>
+                    <span className="text-sm font-medium text-slate-900">{selectedQuoteDetail.customerEmail}</span>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Company</span>
+                    <span className="text-sm font-medium text-slate-900">{selectedQuoteDetail.companyName}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Agent Review Info */}
+              <div>
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Agent Review Status</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Reviewed By</span>
+                    <span className="text-sm font-medium text-slate-900">{selectedQuoteDetail.reviewedBy || 'N/A'}</span>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Reviewed At</span>
+                    <span className="text-sm font-medium text-slate-900">{selectedQuoteDetail.reviewedAt ? new Date(selectedQuoteDetail.reviewedAt).toLocaleString() : 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selection Info */}
+              <div>
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Selection Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Selected At</span>
+                    <span className="text-sm font-medium text-slate-900">{new Date(selectedQuoteDetail.createdAt).toLocaleString()}</span>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">ID</span>
+                    <span className="text-sm font-mono font-medium text-slate-900">{selectedQuoteDetail.selectedQuoteId}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Uploaded Documents */}
+              <div>
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Customer Proof Documents</h4>
+                {quoteDocuments.length > 0 ? (
+                  <div className="space-y-2">
+                    {quoteDocuments.map((doc: any) => (
+                      <div key={doc.docId} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        {doc.mimeType?.includes('image') ? (
+                          <div className="p-2 bg-blue-100 rounded-lg"><Image className="w-5 h-5 text-blue-600" /></div>
+                        ) : (
+                          <div className="p-2 bg-red-100 rounded-lg"><FileIcon className="w-5 h-5 text-red-600" /></div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-800 truncate">{doc.fileName}</p>
+                          <p className="text-[10px] text-slate-400">{(doc.fileSize / 1024).toFixed(1)} KB · {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : ''}</p>
+                        </div>
+                        {doc.fileUrl && (
+                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-colors">
+                            <Eye className="w-3.5 h-3.5" /> Preview
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center">
+                    <FileText className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                    <p className="text-xs text-slate-400">No documents uploaded by customer yet</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Customs Action */}
+              <div className="pt-4 border-t border-slate-200 space-y-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Customs Remarks</label>
+                  <textarea
+                    value={customsActionReason}
+                    onChange={(e) => setCustomsActionReason(e.target.value)}
+                    placeholder="Enter customs remarks (required for rejection)..."
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    rows={2}
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleCustomsAction(selectedQuoteDetail.selectedQuoteId, 'CUSTOMS_APPROVED')}
+                    disabled={customsSubmitting}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm py-2.5 rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-4 h-4" /> Approve Quote
+                  </button>
+                  <button
+                    onClick={() => handleCustomsAction(selectedQuoteDetail.selectedQuoteId, 'REJECTED')}
+                    disabled={customsSubmitting}
+                    className="flex-1 bg-white hover:bg-slate-50 text-red-600 border border-red-200 font-bold text-sm py-2.5 rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <XCircle className="w-4 h-4" /> Reject Quote
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         ) : (

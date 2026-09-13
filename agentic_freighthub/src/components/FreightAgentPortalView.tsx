@@ -20,6 +20,7 @@ import { FreightAgentSidebarNav, FreightAgentTab } from './FreightAgentSidebarNa
 import { Milestone1RouteOperationsView } from './Milestone1RouteOperationsView';
 import { TrackingView } from './TrackingView';
 import { BrokerQuoteReviewModal } from './BrokerQuoteReviewModal';
+import { M4AgentDocumentReview } from './M4AgentDocumentReview';
 import { PORTS_AND_HUBS } from '../data/freightData';
 import { formatCurrency } from '../utils/calculator';
 import { CarrierSpotRate, UserRole, SavedQuotation } from '../types';
@@ -138,6 +139,9 @@ export const FreightAgentPortalView: React.FC<FreightAgentPortalViewProps> = ({
 }) => {
   const [internalTab, setInternalTab] = useState<FreightAgentTab>(agentSubTab);
   const activeTab = agentSubTab || internalTab;
+
+  // Company ID for this agent (default to COMP-001)
+  const userCompanyId = 'COMP-001';
 
   const handleTabChange = (tab: FreightAgentTab) => {
     setInternalTab(tab);
@@ -526,6 +530,13 @@ export const FreightAgentPortalView: React.FC<FreightAgentPortalViewProps> = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* TAB 6: DOCUMENT REVIEW */}
+          {activeTab === 'document-review' && (
+            <M4AgentDocumentReview
+              companyId={userCompanyId}
+            />
           )}
         </div>
       </div>

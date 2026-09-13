@@ -31,7 +31,8 @@ export type AdminTab =
   | 'settings'
   | 'tracking'
   | 'masterdata'
-  | 'feedbacks';
+  | 'feedbacks'
+  | 'activity-history';
 
 interface AdminSidebarNavProps {
   activeTab: AdminTab;
@@ -147,6 +148,13 @@ export const AdminSidebarNav: React.FC<AdminSidebarNavProps> = ({
           id: 'audit-logs',
           label: 'Audit Trail Logs',
           icon: ShieldCheck,
+        },
+        {
+          id: 'activity-history',
+          label: 'Activity History',
+          icon: Activity,
+          badge: 'Live',
+          badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
         },
         {
           id: 'feedbacks',

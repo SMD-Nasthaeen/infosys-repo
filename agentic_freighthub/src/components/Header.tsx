@@ -31,7 +31,7 @@ import { AdminTab } from './AdminSidebarNav';
 
 interface HeaderProps {
   activeTab: string;
-  workspaceView?: 'dashboard' | 'calculation' | 'routes' | 'tracking' | 'quotations' | 'test-scenarios';
+  workspaceView?: 'dashboard' | 'calculation' | 'routes' | 'tracking' | 'quotations' | 'test-scenarios' | 'customer-documents' | 'agent-documents' | 'compare-quotes' | 'selected-quotes';
   adminSubTab?: AdminTab;
   setActiveTab: (tab: string) => void;
   onSelectAdminTab?: (tab: AdminTab) => void;
@@ -40,7 +40,7 @@ interface HeaderProps {
   userRole?: UserRole;
   onOpenAuthModal: () => void;
   onLogout: () => void;
-  onNavigateToWorkspace: (view?: 'dashboard' | 'calculation' | 'tracking' | 'routes' | 'quotations' | 'test-scenarios') => void;
+  onNavigateToWorkspace: (view?: 'dashboard' | 'calculation' | 'tracking' | 'routes' | 'quotations' | 'test-scenarios' | 'customer-documents' | 'agent-documents' | 'compare-quotes' | 'selected-quotes') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({

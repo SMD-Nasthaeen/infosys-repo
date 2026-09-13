@@ -309,3 +309,72 @@ export interface Booking {
   createdAt: string;
   updatedAt?: string;
 }
+
+// M4 Document Types
+export type DocumentType = 'COMMERCIAL_INVOICE' | 'PACKING_LIST' | 'CUSTOMS_DOCUMENT' | 'INSURANCE' | 'BILL_OF_LADING' | 'CERTIFICATE_OF_ORIGIN' | 'OTHER';
+export type DocumentStatus = 'REQUESTED' | 'UPLOADED' | 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED' | 'MISSING';
+export type VerificationArea = 'OPERATIONAL' | 'COMMERCIAL' | 'DOCUMENT';
+
+export interface DocumentRecord {
+  documentId: string;
+  requestId: string;
+  shipmentId: string;
+  customerId: string;
+  companyId: string;
+  documentType: DocumentType;
+  customDocumentType?: string;
+  fileName: string;
+  fileReference: string;
+  fileSize: number;
+  mimeType: string;
+  status: DocumentStatus;
+  remarks?: string;
+  version: number;
+  previousVersionId?: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  isActive: boolean;
+}
+
+export interface DocumentVersion {
+  versionId: string;
+  documentId: string;
+  version: number;
+  fileName: string;
+  fileReference: string;
+  fileSize: number;
+  uploadedBy: string;
+  uploadedAt: string;
+  remarks?: string;
+}
+
+export interface DocumentChecklistItem {
+  documentType: DocumentType;
+  required: boolean;
+  status: DocumentStatus;
+  documentId?: string;
+  remarks?: string;
+}
+
+export interface DocumentVerificationChecklist {
+  checklistId: string;
+  requestId: string;
+  requiredDocuments: DocumentChecklistItem[];
+  verifiedBy?: string;
+  verifiedAt?: string;
+  isComplete: boolean;
+}
+
+export interface DocumentAuditLog {
+  auditId: string;
+  documentId: string;
+  requestId: string;
+  userId: string;
+  companyId: string;
+  action: 'REQUESTED' | 'UPLOADED' | 'VIEWED' | 'VERIFIED' | 'REJECTED' | 'REPLACED' | 'COMPLETED';
+  timestamp: string;
+  remarks?: string;
+  version?: number;
+}

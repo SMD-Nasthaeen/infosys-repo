@@ -11,6 +11,7 @@ export interface UserAccount {
   createdAt: string;
   lastLoginAt?: string;
   companyName?: string;
+  companyId?: string;
   generatedBy?: string; // 'Self-Registered' | 'Admin Generated'
   phone?: string;
   notes?: string;

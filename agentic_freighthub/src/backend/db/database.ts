@@ -63,9 +63,14 @@ export const riskAlertsCollection = () => collection('risk_alerts');
 export const mlPredictionsCollection = () => collection('ml_predictions');
 export const agentRunsCollection = () => collection('agent_runs');
 export const documentsCollection = () => collection('documents');
+export const m4DocumentsCollection = () => collection('m4_documents');
+export const documentVersionsCollection = () => collection('document_versions');
+export const documentAuditLogsCollection = () => collection('document_audit_logs');
+export const documentChecklistsCollection = () => collection('document_checklists');
 export const companiesCollection = () => collection('companies');
 export const verificationRequestsCollection = () => collection('verification_requests');
 export const bookingsCollection = () => collection('bookings');
+export const selectedQuotesCollection = () => collection('selected_quotes');
 
 async function ensureIndexes(): Promise<void> {
   const db = await getDb();
@@ -96,6 +101,26 @@ async function ensureIndexes(): Promise<void> {
     await db.collection('bookings').createIndex({ quoteId: 1 });
     await db.collection('bookings').createIndex({ companyId: 1 });
     await db.collection('bookings').createIndex({ verificationRequestId: 1 });
+    // M4 Document indexes
+    await db.collection('m4_documents').createIndex({ documentId: 1 }, { unique: true });
+    await db.collection('m4_documents').createIndex({ requestId: 1 });
+    await db.collection('m4_documents').createIndex({ shipmentId: 1 });
+    await db.collection('m4_documents').createIndex({ customerId: 1 });
+    await db.collection('m4_documents').createIndex({ companyId: 1 });
+    await db.collection('m4_documents').createIndex({ documentType: 1 });
+    await db.collection('document_versions').createIndex({ versionId: 1 }, { unique: true });
+    await db.collection('document_versions').createIndex({ documentId: 1 });
+    await db.collection('document_audit_logs').createIndex({ auditId: 1 }, { unique: true });
+    await db.collection('document_audit_logs').createIndex({ documentId: 1 });
+    await db.collection('document_audit_logs').createIndex({ requestId: 1 });
+    await db.collection('document_checklists').createIndex({ checklistId: 1 }, { unique: true });
+    await db.collection('document_checklists').createIndex({ requestId: 1 });
+    // Selected Quotes indexes
+    await db.collection('selected_quotes').createIndex({ selectedQuoteId: 1 }, { unique: true });
+    await db.collection('selected_quotes').createIndex({ quoteId: 1 });
+    await db.collection('selected_quotes').createIndex({ customerId: 1 });
+    await db.collection('selected_quotes').createIndex({ companyId: 1 });
+    await db.collection('selected_quotes').createIndex({ status: 1 });
     console.log('[+] MongoDB indexes ensured');
   } catch (err: any) {
     console.warn('[!] Index creation warning:', err.message);

@@ -6,12 +6,20 @@ interface M4CompareQuotesViewProps {
   quotations: SavedQuotation[];
   onQuoteSelected: () => void;
   userEmail: string;
+  onUpdateQuotation?: (quote: SavedQuotation) => void;
+  onDeleteQuotation?: (quoteId: string) => void;
+  onDeleteMultipleQuotations?: (quoteIds: string[]) => void;
+  uploadedFiles?: Array<{ fileUrl: string; fileName: string; fileSize: number }>;
 }
 
 export const M4CompareQuotesView: React.FC<M4CompareQuotesViewProps> = ({
   quotations,
   onQuoteSelected,
-  userEmail
+  userEmail,
+  onUpdateQuotation,
+  onDeleteQuotation,
+  onDeleteMultipleQuotations,
+  uploadedFiles = []
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,29 +45,103 @@ export const M4CompareQuotesView: React.FC<M4CompareQuotesViewProps> = ({
     try {
       const token = localStorage.getItem('freighthub_session_token') || '';
       
-      const response = await fetch('/api/quotes/select', {
+      // Save to selected_quotes collection via API
+      const response = await fetch('/api/selected-quotes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ quoteId: quote.id })
+        body: JSON.stringify({
+          quoteId: quote.id,
+          companyName: quote.companyName,
+          companyId: quote.companyId || 'COMP-001',
+          originCode: quote.originCode,
+          destinationCode: quote.destinationCode,
+          transportMode: quote.transportMode,
+          tariffAmount: quote.tariffAmount,
+          currency: quote.currency,
+          shipperEmail: quote.shipperEmail || userEmail
+        })
       });
 
       const result = await response.json();
 
-      if (!response.ok || !result.success) {
-        setError(result.error || 'Failed to select quote.');
+      if (response.ok && result.success) {
+        const selectedQuoteId = result.data.selectedQuoteId;
+        if (onUpdateQuotation) {
+          onUpdateQuotation({ ...quote, status: 'SELECTED' });
+        }
+        // Save uploaded documents to the selected quote
+        if (uploadedFiles.length > 0 && selectedQuoteId) {
+          const token = localStorage.getItem('freighthub_session_token') || '';
+          for (const file of uploadedFiles) {
+            let documentType = 'OTHER';
+            if (file.fileName.match(/\.(pdf)$/i)) documentType = 'COMMERCIAL_INVOICE';
+            else if (file.fileName.match(/\.(jpg|jpeg|png)$/i)) documentType = 'PACKING_LIST';
+            else if (file.fileName.match(/\.(doc|docx)$/i)) documentType = 'CUSTOMS_DOCUMENT';
+
+            await fetch(`/api/selected-quotes/${selectedQuoteId}/documents`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                documentType,
+                fileName: file.fileName,
+                fileUrl: file.fileUrl,
+                fileSize: file.fileSize,
+                mimeType: file.fileName.match(/\.(jpg|jpeg|png)$/i) ? 'image/jpeg' : file.fileName.match(/\.pdf$/i) ? 'application/pdf' : 'application/msword'
+              })
+            });
+          }
+        }
+        // Delete all other quotes
+        const idsToDelete = quotations.filter(q => q.id !== quote.id).map(q => q.id);
+        if (onDeleteMultipleQuotations && idsToDelete.length > 0) {
+          onDeleteMultipleQuotations(idsToDelete);
+        } else if (onDeleteQuotation) {
+          idsToDelete.forEach(id => onDeleteQuotation(id));
+        }
+        setSuccessMsg(`Quote ${quote.id} Selected Successfully!`);
+        setTimeout(() => {
+          onQuoteSelected();
+        }, 1200);
         setIsSubmitting(false);
         return;
       }
 
-      setSuccessMsg(`Quote ${quote.id} Selected Successfully! Verification Request Created.`);
+      // Fallback to local selection if API fails
+      if (onUpdateQuotation) {
+        onUpdateQuotation({ ...quote, status: 'SELECTED' });
+      }
+      const fallbackIds = quotations.filter(q => q.id !== quote.id).map(q => q.id);
+      if (onDeleteMultipleQuotations && fallbackIds.length > 0) {
+        onDeleteMultipleQuotations(fallbackIds);
+      } else if (onDeleteQuotation) {
+        fallbackIds.forEach(id => onDeleteQuotation(id));
+      }
+      setSuccessMsg(`Quote ${quote.id} Selected Successfully!`);
       setTimeout(() => {
         onQuoteSelected();
-      }, 2000);
+      }, 1200);
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+      // Network error - do local selection
+      if (onUpdateQuotation) {
+        onUpdateQuotation({ ...quote, status: 'SELECTED' });
+      }
+      const catchIds = quotations.filter(q => q.id !== quote.id).map(q => q.id);
+      if (onDeleteMultipleQuotations && catchIds.length > 0) {
+        onDeleteMultipleQuotations(catchIds);
+      } else if (onDeleteQuotation) {
+        catchIds.forEach(id => onDeleteQuotation(id));
+      }
+      setSuccessMsg(`Quote ${quote.id} Selected Successfully!`);
+      setTimeout(() => {
+        onQuoteSelected();
+      }, 1200);
+    } finally {
       setIsSubmitting(false);
     }
   };

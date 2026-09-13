@@ -1,13 +1,14 @@
 import React from 'react';
-import { Package, Calculator, Compass, Radar, FileText, ShieldCheck } from 'lucide-react';
+import { Package, Calculator, Compass, Radar, FileText, ShieldCheck, FolderOpen } from 'lucide-react';
 import { HelpdeskWidget } from './HelpdeskWidget';
 
-export type UserWorkspaceView = 'dashboard' | 'calculation' | 'routes' | 'tracking' | 'quotations' | 'test-scenarios';
+export type UserWorkspaceView = 'dashboard' | 'calculation' | 'routes' | 'tracking' | 'quotations' | 'test-scenarios' | 'customer-documents' | 'agent-documents' | 'compare-quotes' | 'selected-quotes';
 
 interface SidebarNavProps {
   activeView: UserWorkspaceView;
   onSelectView: (view: UserWorkspaceView) => void;
   quotationCount: number;
+  userRole?: string;
 }
 
 interface NavItem {
@@ -22,14 +23,25 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   activeView,
   onSelectView,
   quotationCount,
+  userRole,
 }) => {
   const navItems: NavItem[] = [
     { id: 'calculation', label: 'Calculation', icon: Calculator, hasDot: true },
     { id: 'dashboard', label: 'Shipment', icon: Package },
     { id: 'routes', label: 'Routes', icon: Compass },
     { id: 'tracking', label: 'Tracking', icon: Radar },
-    { id: 'quotations', label: 'Quotations', icon: FileText, badge: quotationCount },
     { id: 'test-scenarios', label: 'Core Test Suite', icon: ShieldCheck },
+    // Add document views based on user role
+    ...(userRole === 'customer' || userRole === 'user'
+      ? [
+          { id: 'compare-quotes' as UserWorkspaceView, label: 'Compare Quotes', icon: FolderOpen },
+          { id: 'selected-quotes' as UserWorkspaceView, label: 'My Selections', icon: FolderOpen },
+          { id: 'customer-documents' as UserWorkspaceView, label: 'My Documents', icon: FolderOpen },
+        ]
+      : []),
+    ...(userRole === 'freight-agent'
+      ? [{ id: 'agent-documents' as UserWorkspaceView, label: 'Document Review', icon: FolderOpen }]
+      : []),
   ];
 
   return (

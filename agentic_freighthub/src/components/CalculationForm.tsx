@@ -18,7 +18,11 @@ import {
   X,
   Clock,
   Lock,
-  ShieldAlert
+  ShieldAlert,
+  Upload,
+  FileText,
+  File,
+  Image as ImageIcon
 } from 'lucide-react';
 import { QuoteFormState, TransportMode, OceanLoadType, Incoterm, PackageType, ContainerSpec, CurrencyCode, QuoteDraft } from '../types';
 import { PORTS_AND_HUBS, PICKUP_POINTS, DELIVERY_POINTS, PROMO_COUPONS } from '../data/freightData';
@@ -33,6 +37,8 @@ interface CalculationFormProps {
   onGenerateQuotation?: () => void;
   onResetForm?: () => void;
   isGenerating?: boolean;
+  onUploadDocument?: (file: File) => Promise<{ fileUrl: string; fileName: string } | null>;
+  uploadedFiles?: Array<{ fileUrl: string; fileName: string; fileSize: number }>;
 }
 
 interface FormValidationErrors {
@@ -59,10 +65,13 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
   onGenerateQuotation,
   onResetForm,
   isGenerating = false,
+  onUploadDocument,
+  uploadedFiles = [],
 }) => {
   const [drafts, setDrafts] = useState<QuoteDraft[]>([]);
   const [isDraftsModalOpen, setIsDraftsModalOpen] = useState<boolean>(false);
   const [isDraftSavedModalOpen, setIsDraftSavedModalOpen] = useState<boolean>(false);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [justSavedDraft, setJustSavedDraft] = useState<QuoteDraft | null>(null);
   const [draftToast, setDraftToast] = useState<string | null>(null);
 
@@ -975,6 +984,59 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
               </p>
             )}
           </div>
+        </div>
+
+        {/* STEP 5: DOCUMENT UPLOAD */}
+        <div className="mt-6 pt-6 border-t border-slate-200/80 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-7 h-7 rounded-xl bg-violet-100 flex items-center justify-center text-violet-700 font-black text-xs">5</div>
+            <h3 className="font-extrabold text-slate-900 text-base">Upload Proof Documents</h3>
+            <span className="text-[10px] text-slate-400 font-bold ml-1">(Optional)</span>
+          </div>
+          <p className="text-xs text-slate-500">Upload invoice, packing list, or any proof documents. These will be visible to the freight agent and customs officer.</p>
+          
+          <div className="flex flex-wrap gap-3">
+            <label className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
+              isUploadingDoc ? 'border-blue-300 bg-blue-50' : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
+            }`}>
+              <Upload className={`w-4 h-4 ${isUploadingDoc ? 'text-blue-500 animate-pulse' : 'text-slate-400'}`} />
+              <span className="text-xs font-bold text-slate-600">{isUploadingDoc ? 'Uploading...' : 'Upload Document'}</span>
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                disabled={isUploadingDoc}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file && onUploadDocument) {
+                    setIsUploadingDoc(true);
+                    await onUploadDocument(file);
+                    setIsUploadingDoc(false);
+                  }
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+
+          {uploadedFiles.length > 0 && (
+            <div className="space-y-2">
+              {uploadedFiles.map((f, idx) => (
+                <div key={idx} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  {f.fileName.match(/\.(jpg|jpeg|png)$/i) ? (
+                    <div className="p-2 bg-blue-100 rounded-lg"><ImageIcon className="w-4 h-4 text-blue-600" /></div>
+                  ) : (
+                    <div className="p-2 bg-red-100 rounded-lg"><File className="w-4 h-4 text-red-600" /></div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">{f.fileName}</p>
+                    <p className="text-[10px] text-slate-400">{(f.fileSize / 1024).toFixed(1)} KB</p>
+                  </div>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Primary Action Button & Save as Draft */}

@@ -44,6 +44,7 @@ import { AdminRiskCustomsView } from './AdminRiskCustomsView';
 import { AdminIntegrationsView } from './AdminIntegrationsView';
 import { AdminAlertsView } from './AdminAlertsView';
 import { AdminAuditLogsView } from './AdminAuditLogsView';
+import { AdminActivityHistoryView } from './AdminActivityHistoryView';
 import { AdminSettingsView } from './AdminSettingsView';
 
 interface AdminDashboardViewProps {
@@ -829,6 +830,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
       {/* TAB: Audit Logs & Governance History */}
       {activeTab === 'audit-logs' && <AdminAuditLogsView />}
+
+      {/* TAB: Activity History */}
+      {activeTab === 'activity-history' && <AdminActivityHistoryView />}
 
       {/* TAB: Settings & System Policies */}
       {activeTab === 'settings' && <AdminSettingsView />}
