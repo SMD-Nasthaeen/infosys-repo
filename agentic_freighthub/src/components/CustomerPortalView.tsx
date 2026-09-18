@@ -1641,6 +1641,7 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({
       {activeSubTab === 'selected-quotes' && (
         <M4SelectedQuotesView 
           userEmail={currentCustomer.email} 
+          onNavigateToTracking={() => setActiveSubTab('tracking')}
         />
       )}
 

@@ -84,6 +84,7 @@ async function ensureIndexes(): Promise<void> {
     await db.collection('quotes').createIndex({ quoteId: 1 }, { unique: true });
     await db.collection('quotes').createIndex({ shipmentId: 1 });
     await db.collection('quotes').createIndex({ customerEmail: 1 });
+    await db.collection('quotes').createIndex({ shipperEmail: 1 });
     await db.collection('quote_audit_logs').createIndex({ quoteId: 1 });
     await db.collection('notifications').createIndex({ userEmail: 1 });
     await db.collection('audit_logs').createIndex({ timestamp: -1 });

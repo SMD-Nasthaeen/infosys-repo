@@ -22,9 +22,11 @@ import {
   Upload,
   FileText,
   File,
-  Image as ImageIcon
+  Image as ImageIcon,
+  IdCard,
+  Building2
 } from 'lucide-react';
-import { QuoteFormState, TransportMode, OceanLoadType, Incoterm, PackageType, ContainerSpec, CurrencyCode, QuoteDraft } from '../types';
+import { QuoteFormState, TransportMode, OceanLoadType, Incoterm, PackageType, ContainerSpec, CurrencyCode, QuoteDraft, ProofDocumentType, ProofDocumentSlot } from '../types';
 import { PORTS_AND_HUBS, PICKUP_POINTS, DELIVERY_POINTS, PROMO_COUPONS } from '../data/freightData';
 import { useMasterData } from '../services/masterDataService';
 
@@ -39,6 +41,9 @@ interface CalculationFormProps {
   isGenerating?: boolean;
   onUploadDocument?: (file: File) => Promise<{ fileUrl: string; fileName: string } | null>;
   uploadedFiles?: Array<{ fileUrl: string; fileName: string; fileSize: number }>;
+  proofDocuments?: ProofDocumentSlot[];
+  onUploadProofDocument?: (docType: ProofDocumentType, file: File) => Promise<{ fileUrl: string; fileName: string } | null>;
+  onRemoveProofDocument?: (docType: ProofDocumentType) => void;
 }
 
 interface FormValidationErrors {
@@ -67,11 +72,15 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
   isGenerating = false,
   onUploadDocument,
   uploadedFiles = [],
+  proofDocuments = [],
+  onUploadProofDocument,
+  onRemoveProofDocument,
 }) => {
   const [drafts, setDrafts] = useState<QuoteDraft[]>([]);
   const [isDraftsModalOpen, setIsDraftsModalOpen] = useState<boolean>(false);
   const [isDraftSavedModalOpen, setIsDraftSavedModalOpen] = useState<boolean>(false);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [uploadingDocType, setUploadingDocType] = useState<ProofDocumentType | null>(null);
   const [justSavedDraft, setJustSavedDraft] = useState<QuoteDraft | null>(null);
   const [draftToast, setDraftToast] = useState<string | null>(null);
 
@@ -83,7 +92,7 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
   const { ports: masterPorts, incoterms: masterIncoterms, packagingTypes: masterPackagingTypes } = useMasterData();
 
   // Combine static and live master ports seamlessly
-  const combinedPorts = React.useMemo(() => {
+  const allCombinedPorts = React.useMemo(() => {
     const list = [...PORTS_AND_HUBS];
     masterPorts.forEach((mp) => {
       if (mp.isActive !== false) {
@@ -96,12 +105,35 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
             country: mp.countryCode || 'Global',
             type: 'sea',
             locationLabel: `${mp.portName} Hub`,
+            supportedModes: ['ocean', 'air', 'ground', 'express'],
           });
         }
       }
     });
     return list;
   }, [masterPorts]);
+
+  // Filter ports by selected transport mode
+  const combinedPorts = React.useMemo(() => {
+    if (!formData.transportMode) return allCombinedPorts;
+    return allCombinedPorts.filter((p) => p.supportedModes.includes(formData.transportMode));
+  }, [allCombinedPorts, formData.transportMode]);
+
+  // Mode-specific labels and placeholders
+  const modeLabels = React.useMemo(() => {
+    switch (formData.transportMode) {
+      case 'ocean':
+        return { origin: 'ORIGIN PORT / HUB', dest: 'DESTINATION PORT / HUB', originPH: 'Select Origin Port / Hub', destPH: 'Select Destination Port / Hub' };
+      case 'air':
+        return { origin: 'ORIGIN AIRPORT', dest: 'DESTINATION AIRPORT', originPH: 'Select Origin Airport', destPH: 'Select Destination Airport' };
+      case 'ground':
+        return { origin: 'ORIGIN GROUND / RAIL HUB', dest: 'DESTINATION GROUND / RAIL HUB', originPH: 'Select Origin Ground / Rail Hub', destPH: 'Select Destination Ground / Rail Hub' };
+      case 'express':
+        return { origin: 'ORIGIN AIRPORT / EXPRESS HUB', dest: 'DESTINATION AIRPORT / EXPRESS HUB', originPH: 'Select Origin Airport / Express Hub', destPH: 'Select Destination Airport / Express Hub' };
+      default:
+        return { origin: 'ORIGIN PORT / HUB', dest: 'DESTINATION PORT / HUB', originPH: 'Select Origin Port / Hub', destPH: 'Select Destination Port / Hub' };
+    }
+  }, [formData.transportMode]);
 
   // Load saved drafts on mount
   useEffect(() => {
@@ -127,13 +159,23 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
     const errors: FormValidationErrors = {};
 
     if (!formData.originPortCode) {
-      errors.originPortCode = 'Origin Port / Hub is required.';
+      errors.originPortCode = `${modeLabels.origin} is required.`;
+    } else if (formData.transportMode) {
+      const originValid = allCombinedPorts.some((p) => p.code === formData.originPortCode && p.supportedModes.includes(formData.transportMode));
+      if (!originValid) {
+        errors.originPortCode = `Selected origin is not valid for ${formData.transportMode.toUpperCase()} mode.`;
+      }
     }
 
     if (!formData.destinationPortCode) {
-      errors.destinationPortCode = 'Destination Port / Hub is required.';
+      errors.destinationPortCode = `${modeLabels.dest} is required.`;
     } else if (formData.originPortCode && formData.originPortCode === formData.destinationPortCode) {
       errors.destinationPortCode = 'Origin and Destination ports cannot be identical.';
+    } else if (formData.transportMode) {
+      const destValid = allCombinedPorts.some((p) => p.code === formData.destinationPortCode && p.supportedModes.includes(formData.transportMode));
+      if (!destValid) {
+        errors.destinationPortCode = `Selected destination is not valid for ${formData.transportMode.toUpperCase()} mode.`;
+      }
     }
 
     if (!formData.cargoReadyDate) {
@@ -406,7 +448,7 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
             <label className="block text-[11px] font-extrabold text-slate-700 mb-1 uppercase tracking-wider flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                <span>ORIGIN PORT / HUB <span className="text-red-500 font-bold">*</span></span>
+                <span>{modeLabels.origin} <span className="text-red-500 font-bold">*</span></span>
               </span>
               {!formData.originPortCode && <span className="text-[9px] text-amber-600 font-mono font-bold">Required</span>}
             </label>
@@ -425,7 +467,7 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
                   : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white focus:border-blue-600'
               }`}
             >
-              <option value="">-- Select Origin Port / Hub ({combinedPorts.length} available) --</option>
+              <option value="">-- {modeLabels.originPH} ({combinedPorts.length} available) --</option>
               {combinedPorts.map((port) => (
                 <option key={port.code} value={port.code}>
                   {port.name}
@@ -444,7 +486,7 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
             <label className="block text-[11px] font-extrabold text-slate-700 mb-1 uppercase tracking-wider flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                <span>DESTINATION PORT / HUB <span className="text-red-500 font-bold">*</span></span>
+                <span>{modeLabels.dest} <span className="text-red-500 font-bold">*</span></span>
               </span>
               {!formData.destinationPortCode && <span className="text-[9px] text-amber-600 font-mono font-bold">Required</span>}
             </label>
@@ -463,7 +505,7 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
                   : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white focus:border-blue-600'
               }`}
             >
-              <option value="">-- Select Destination Port / Hub ({combinedPorts.length} available) --</option>
+              <option value="">-- {modeLabels.destPH} ({combinedPorts.length} available) --</option>
               {combinedPorts.map((port) => (
                 <option key={port.code} value={port.code}>
                   {port.name}
@@ -603,7 +645,7 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
                   key={mode.id}
                   type="button"
                   onClick={() => {
-                    onChangeForm({ transportMode: mode.id as TransportMode });
+                    onChangeForm({ transportMode: mode.id as TransportMode, originPortCode: '', destinationPortCode: '' });
                     markTouched('transportMode');
                   }}
                   className={`py-3 px-3 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all border ${
@@ -986,57 +1028,81 @@ export const CalculationForm: React.FC<CalculationFormProps> = ({
           </div>
         </div>
 
-        {/* STEP 5: DOCUMENT UPLOAD */}
+        {/* STEP 5: PROOF DOCUMENT UPLOAD */}
         <div className="mt-6 pt-6 border-t border-slate-200/80 space-y-4">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-7 h-7 rounded-xl bg-violet-100 flex items-center justify-center text-violet-700 font-black text-xs">5</div>
             <h3 className="font-extrabold text-slate-900 text-base">Upload Proof Documents</h3>
             <span className="text-[10px] text-slate-400 font-bold ml-1">(Optional)</span>
           </div>
-          <p className="text-xs text-slate-500">Upload invoice, packing list, or any proof documents. These will be visible to the freight agent and customs officer.</p>
-          
-          <div className="flex flex-wrap gap-3">
-            <label className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
-              isUploadingDoc ? 'border-blue-300 bg-blue-50' : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
-            }`}>
-              <Upload className={`w-4 h-4 ${isUploadingDoc ? 'text-blue-500 animate-pulse' : 'text-slate-400'}`} />
-              <span className="text-xs font-bold text-slate-600">{isUploadingDoc ? 'Uploading...' : 'Upload Document'}</span>
-              <input
-                type="file"
-                className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                disabled={isUploadingDoc}
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file && onUploadDocument) {
-                    setIsUploadingDoc(true);
-                    await onUploadDocument(file);
-                    setIsUploadingDoc(false);
-                  }
-                  e.target.value = '';
-                }}
-              />
-            </label>
-          </div>
+          <p className="text-xs text-slate-500">Upload the required proof documents. Quotation generation works even if some documents are missing.</p>
 
-          {uploadedFiles.length > 0 && (
-            <div className="space-y-2">
-              {uploadedFiles.map((f, idx) => (
-                <div key={idx} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  {f.fileName.match(/\.(jpg|jpeg|png)$/i) ? (
-                    <div className="p-2 bg-blue-100 rounded-lg"><ImageIcon className="w-4 h-4 text-blue-600" /></div>
-                  ) : (
-                    <div className="p-2 bg-red-100 rounded-lg"><File className="w-4 h-4 text-red-600" /></div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-800 truncate">{f.fileName}</p>
-                    <p className="text-[10px] text-slate-400">{(f.fileSize / 1024).toFixed(1)} KB</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { type: 'AADHAAR' as ProofDocumentType, label: 'Aadhaar / Identity Proof', icon: <IdCard className="w-8 h-8 text-blue-500 mx-auto" /> },
+              { type: 'COMPANY_VERIFICATION' as ProofDocumentType, label: 'Company Verification Proof', icon: <Building2 className="w-8 h-8 text-slate-500 mx-auto" /> },
+              { type: 'ADDRESS_PROOF' as ProofDocumentType, label: 'Business / Address Proof', icon: <MapPin className="w-8 h-8 text-rose-500 mx-auto" /> },
+            ].map((slot) => {
+              const existing = proofDocuments.find((d) => d.documentType === slot.type);
+              const isUploaded = existing?.status === 'UPLOADED';
+              const isUploading = uploadingDocType === slot.type;
+              return (
+                <div key={slot.type} className={`relative p-4 rounded-2xl border-2 transition-all ${
+                  isUploaded
+                    ? 'border-emerald-300 bg-emerald-50/50'
+                    : 'border-dashed border-slate-300 bg-slate-50/50 hover:border-blue-300 hover:bg-blue-50/30'
+                }`}>
+                  <div className="text-center space-y-2">
+                    <div className="text-2xl">{slot.icon}</div>
+                    <p className="text-xs font-extrabold text-slate-800 leading-tight">{slot.label}</p>
+                    {isUploaded ? (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-center gap-1 text-emerald-600">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-bold">Uploaded</span>
+                          {onRemoveProofDocument && (
+                            <button
+                              type="button"
+                              onClick={() => onRemoveProofDocument(slot.type)}
+                              className="ml-1 p-0.5 rounded-full bg-red-100 hover:bg-red-200 text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                              title="Remove document"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-500 truncate max-w-[160px] mx-auto">{existing?.fileName}</p>
+                      </div>
+                    ) : (
+                      <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold cursor-pointer transition-all ${
+                        isUploading
+                          ? 'bg-blue-100 text-blue-600 cursor-wait'
+                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700'
+                      }`}>
+                        <Upload className={`w-3 h-3 ${isUploading ? 'animate-pulse' : ''}`} />
+                        <span>{isUploading ? 'Uploading...' : 'Upload Document'}</span>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          disabled={isUploading}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file && onUploadProofDocument) {
+                              setUploadingDocType(slot.type);
+                              await onUploadProofDocument(slot.type, file);
+                              setUploadingDocType(null);
+                            }
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    )}
                   </div>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
 
         {/* Primary Action Button & Save as Draft */}

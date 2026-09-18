@@ -112,13 +112,13 @@ export const Header: React.FC<HeaderProps> = ({
       ? 'Freight Agent'
       : userEmail.split('@')[0] || 'Customer';
 
-  // Live Date State
+  // Live Date & Time State
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentDate(new Date());
-    }, 60000);
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -127,6 +127,13 @@ export const Header: React.FC<HeaderProps> = ({
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+  });
+
+  const formattedTime = currentDate.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
   });
 
   const getLogoBadge = () => {
@@ -239,6 +246,17 @@ export const Header: React.FC<HeaderProps> = ({
             <CalendarIcon className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span className="font-semibold text-slate-200 text-xs tracking-tight whitespace-nowrap">
               {formattedDate}
+            </span>
+          </div>
+
+          {/* Live Clock Display */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-xs shadow-inner select-none">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+            </span>
+            <span className="font-mono font-bold text-emerald-400 text-xs tracking-tight whitespace-nowrap">
+              {formattedTime}
             </span>
           </div>
 

@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { CheckCircle2, X, ArrowLeft } from 'lucide-react';
+import React, { useState, useMemo, useEffect, Component, ReactNode } from 'react';
+import { CheckCircle2, X, ArrowLeft, AlertCircle } from 'lucide-react';
 import { Header } from './components/Header';
 import { SignInPage } from './components/SignInPage';
 import { AuthModal } from './components/AuthModal';
@@ -32,12 +32,44 @@ import { M4CustomerDocumentsView } from './components/M4CustomerDocumentsView';
 import { M4AgentDocumentReview } from './components/M4AgentDocumentReview';
 import { M4CompareQuotesView } from './components/M4CompareQuotesView';
 import { M4SelectedQuotesView } from './components/M4SelectedQuotesView';
+import { M4CustomerTrackingView } from './components/M4CustomerTrackingView';
 import { userService } from './services/userService';
 
-import { QuoteFormState, SavedQuotation, QuoteStatus, CargoLineItem, UserRole } from './types';
+import { QuoteFormState, SavedQuotation, QuoteStatus, CargoLineItem, UserRole, ProofDocumentType, ProofDocumentSlot, CalculationSnapshot } from './types';
 import { validateCustomsCompliance } from './backend/customs/customsService';
 import { INITIAL_QUOTATIONS } from './data/freightData';
 import { calculateTariffBreakdown } from './utils/calculator';
+
+interface ErrorBoundaryProps { children: ReactNode; }
+interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, error: null };
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center mb-4">
+            <AlertCircle className="w-7 h-7 text-red-500" />
+          </div>
+          <h3 className="text-sm font-extrabold text-slate-700 mb-1">Unable to load tracking information</h3>
+          <p className="text-xs text-slate-400 max-w-[300px] mb-4">
+            Something went wrong while loading the tracking view. Please try refreshing the page.
+          </p>
+          <button
+            onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+            className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const createEmptyFormState = (): QuoteFormState => ({
   originPortCode: '',
@@ -104,10 +136,26 @@ export default function App() {
   const [isAgentModalOpen, setIsAgentModalOpen] = useState<boolean>(false);
   const [formUploadedFiles, setFormUploadedFiles] = useState<Array<{ fileUrl: string; fileName: string; fileSize: number }>>([]);
 
+  // Proof document state for 3 required document types
+  const [proofDocuments, setProofDocuments] = useState<ProofDocumentSlot[]>(() => {
+    return [
+      { documentType: 'AADHAAR', label: 'Aadhaar / Identity Proof', status: 'NOT_UPLOADED' },
+      { documentType: 'COMPANY_VERIFICATION', label: 'Company Verification Proof', status: 'NOT_UPLOADED' },
+      { documentType: 'ADDRESS_PROOF', label: 'Business / Address Proof', status: 'NOT_UPLOADED' },
+    ];
+  });
+
   // Persist quotations to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('freighthub_quotations', JSON.stringify(quotations));
   }, [quotations]);
+
+  // Persist proof documents to localStorage (per-user)
+  useEffect(() => {
+    if (userEmail) {
+      localStorage.setItem(`freighthub_proof_docs_${userEmail}`, JSON.stringify(proofDocuments));
+    }
+  }, [proofDocuments, userEmail]);
 
   // Feedback Popup State (middle screen pop up box)
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState<boolean>(false);
@@ -150,6 +198,36 @@ export default function App() {
     setQuoteFeedback(null);
     setIsEstimateCalculated(false);
     setIsAgentModalOpen(false);
+    // Clean up old shared localStorage key (migration from shared to per-user keys)
+    localStorage.removeItem('freighthub_proof_docs');
+    // Load this user's proof documents from localStorage (or reset to empty)
+    try {
+      const stored = localStorage.getItem(`freighthub_proof_docs_${email}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length === 3) {
+          setProofDocuments(parsed);
+        } else {
+          setProofDocuments([
+            { documentType: 'AADHAAR', label: 'Aadhaar / Identity Proof', status: 'NOT_UPLOADED' },
+            { documentType: 'COMPANY_VERIFICATION', label: 'Company Verification Proof', status: 'NOT_UPLOADED' },
+            { documentType: 'ADDRESS_PROOF', label: 'Business / Address Proof', status: 'NOT_UPLOADED' },
+          ]);
+        }
+      } else {
+        setProofDocuments([
+          { documentType: 'AADHAAR', label: 'Aadhaar / Identity Proof', status: 'NOT_UPLOADED' },
+          { documentType: 'COMPANY_VERIFICATION', label: 'Company Verification Proof', status: 'NOT_UPLOADED' },
+          { documentType: 'ADDRESS_PROOF', label: 'Business / Address Proof', status: 'NOT_UPLOADED' },
+        ]);
+      }
+    } catch {
+      setProofDocuments([
+        { documentType: 'AADHAAR', label: 'Aadhaar / Identity Proof', status: 'NOT_UPLOADED' },
+        { documentType: 'COMPANY_VERIFICATION', label: 'Company Verification Proof', status: 'NOT_UPLOADED' },
+        { documentType: 'ADDRESS_PROOF', label: 'Business / Address Proof', status: 'NOT_UPLOADED' },
+      ]);
+    }
     const isSpecialRole = role === 'admin' || role === 'freight-agent' || role === 'customs-officer';
     setWorkspaceView(isSpecialRole ? 'dashboard' : 'calculation');
     setAdminSubTab('home');
@@ -227,6 +305,16 @@ export default function App() {
         },
       ],
     });
+  };
+
+  // Handle editing a rejected quote
+  const handleEditQuote = (quoteId: string) => {
+    const target = quotations.find((q) => q.id === quoteId);
+    if (target) {
+      setFormData(target.formData);
+      setIsEstimateCalculated(false);
+      setWorkspaceView('calculation');
+    }
   };
 
   // Form Handlers - changes return the live estimate to zero until user generates quote
@@ -336,6 +424,44 @@ export default function App() {
     }
   };
 
+  // Upload a specific proof document type (Aadhaar, Company Verification, Address Proof)
+  const handleUploadProofDocument = async (docType: ProofDocumentType, file: File): Promise<{ fileUrl: string; fileName: string } | null> => {
+    try {
+      const token = localStorage.getItem('freighthub_session_token') || '';
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formDataUpload,
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setProofDocuments((prev) =>
+          prev.map((d) =>
+            d.documentType === docType
+              ? { ...d, fileName: file.name, fileUrl: result.fileUrl, fileSize: file.size, status: 'UPLOADED' as const, uploadedAt: new Date().toISOString() }
+              : d
+          )
+        );
+        return { fileUrl: result.fileUrl, fileName: file.name };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleRemoveProofDocument = (docType: ProofDocumentType) => {
+    setProofDocuments((prev) =>
+      prev.map((d) =>
+        d.documentType === docType
+          ? { documentType: d.documentType, label: d.label, status: 'NOT_UPLOADED' as const }
+          : d
+      )
+    );
+  };
+
   const handleGenerateQuotation = () => {
     if (isGeneratingQuote) return;
     setIsGeneratingQuote(true);
@@ -353,6 +479,54 @@ export default function App() {
       const quoteId = `QT-${Date.now()}-${index + 1}`;
       const adjustedPrice = Math.round(basePrice * company.margin);
 
+      // Build company-specific breakdown with recalculation
+      const companyBreakdown = { ...liveBreakdown };
+      companyBreakdown.finalSellPrice = adjustedPrice;
+      companyBreakdown.grandTotal = adjustedPrice;
+      companyBreakdown.marginAmount = adjustedPrice - liveBreakdown.totalCost;
+      companyBreakdown.marginPercentage = liveBreakdown.totalCost > 0
+        ? Math.round(((adjustedPrice - liveBreakdown.totalCost) / liveBreakdown.totalCost) * 100 * 100) / 100
+        : liveBreakdown.marginPercentage;
+
+      // Create immutable calculation snapshot for this specific quote
+      const calculationSnapshot: CalculationSnapshot = {
+        baseFreight: liveBreakdown.baseTariff,
+        bafFuelSurcharge: liveBreakdown.bafFuelSurcharge,
+        originThc: liveBreakdown.terminalHandlingCharge,
+        documentationFee: liveBreakdown.documentationFee,
+        specialHandling: liveBreakdown.specialHandlingSurcharge,
+        insuranceFee: liveBreakdown.insuranceFee,
+        discountAmount: liveBreakdown.discountAmount,
+        totalCost: liveBreakdown.totalCost,
+        marginPercentage: companyBreakdown.marginPercentage,
+        marginAmount: companyBreakdown.marginAmount,
+        finalSellPrice: adjustedPrice,
+        routeDetails: {
+          origin: formData.originPortCode || 'BOM',
+          destination: formData.destinationPortCode || 'AEJEA',
+          distance: liveBreakdown.estimatedDistanceNmOrKm || 'N/A',
+          transitDays: liveBreakdown.estimatedTransitDays || 'N/A',
+          estimatedArrival: liveBreakdown.estimatedArrivalDate || 'N/A',
+        },
+        pricingFactors: {
+          transportMode: formData.transportMode,
+          containerSpec: formData.cargoItems?.[0]?.containerSpec,
+          containerCount: liveBreakdown.containerCount || 1,
+          incoterm: formData.incoterm || 'FOB',
+          totalWeightKg: liveBreakdown.totalWeightKg,
+          cargoSummary: liveBreakdown.cargoCountSummary || 'N/A',
+        },
+        aiCalculation: {
+          ruleBasedPrice: liveBreakdown.ruleBasedPriceInr,
+          aiPredictedPrice: liveBreakdown.aiPredictedPriceInr,
+          recommendedPrice: liveBreakdown.recommendedPriceInr,
+          weatherRiskScore: liveBreakdown.weatherRiskScore,
+          customsRiskScore: liveBreakdown.customsRiskScore,
+          compositeRiskScore: liveBreakdown.compositeRiskScore,
+          overallRiskLevel: liveBreakdown.overallRiskLevel,
+        },
+      };
+
       const newQuote: SavedQuotation = {
         id: quoteId,
         shipperName: formData.fullName || userName || '',
@@ -368,10 +542,11 @@ export default function App() {
         status: 'ISSUED',
         createdAt: new Date().toISOString().split('T')[0],
         cargoSummary: liveBreakdown.cargoCountSummary,
-        breakdown: { ...liveBreakdown, grandTotal: adjustedPrice },
+        breakdown: companyBreakdown,
         formData: { ...formData },
         version: 1,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        calculationSnapshot,
       };
 
       newQuotes.push(newQuote);
@@ -380,9 +555,16 @@ export default function App() {
     // REPLACE all previous quotes - only show the new 3
     setQuotations(newQuotes);
 
-    setQuoteFeedback(
-      `Generated ${newQuotes.length} company quotes for ${formData.originPortCode} → ${formData.destinationPortCode}. Go to "Compare Quotes" to review and select.`
-    );
+    // Build missing document alert
+    const missingDocs = proofDocuments.filter((d) => d.status !== 'UPLOADED').map((d) => d.label);
+    let feedbackMsg = `Generated ${newQuotes.length} company quotes for ${formData.originPortCode} → ${formData.destinationPortCode}. Go to "Compare Quotes" to review and select.`;
+    if (missingDocs.length > 0 && missingDocs.length < 3) {
+      feedbackMsg += ` ⚠ Missing proof documents: ${missingDocs.join(', ')}. You can upload them later from the document section.`;
+    } else if (missingDocs.length === 3) {
+      feedbackMsg += ` ⚠ No proof documents uploaded. Please upload your Aadhaar, Company Verification, and Address Proof documents for faster processing.`;
+    }
+
+    setQuoteFeedback(feedbackMsg);
     setIsGeneratingQuote(false);
     setIsEstimateCalculated(true);
     setWorkspaceView('compare-quotes');
@@ -598,11 +780,14 @@ export default function App() {
                       onAddCargoItem={handleAddCargoItem}
                       onRemoveCargoItem={handleRemoveCargoItem}
                       onUpdateCargoItem={handleUpdateCargoItem}
-                      onGenerateQuotation={handleGenerateQuotation}
+                      onGenerateQuotation={() => setIsAgentModalOpen(true)}
                       onResetForm={handleResetForm}
                       isGenerating={isGeneratingQuote}
                       onUploadDocument={handleFormUploadDocument}
                       uploadedFiles={formUploadedFiles}
+                      proofDocuments={proofDocuments}
+                      onUploadProofDocument={handleUploadProofDocument}
+                      onRemoveProofDocument={handleRemoveProofDocument}
                     />
                   </div>
                 )}
@@ -633,13 +818,23 @@ export default function App() {
 
                 {/* TRACKING VIEW */}
                 {workspaceView === 'tracking' && (
-                  <TrackingView
-                    userRole={userRole}
-                    onViewQuotationPdf={(quoteId) => {
-                      const matched = quotations.find((q) => q.id === quoteId);
-                      if (matched) setSelectedQuoteForPDF(matched);
-                    }}
-                  />
+                  (userRole === 'customer' || userRole === 'user') ? (
+                    <ErrorBoundary>
+                      <M4CustomerTrackingView
+                        userEmail={userEmail}
+                        userRole={userRole}
+                        quotations={quotations}
+                      />
+                    </ErrorBoundary>
+                  ) : (
+                    <TrackingView
+                      userRole={userRole}
+                      onViewQuotationPdf={(quoteId) => {
+                        const matched = quotations.find((q) => q.id === quoteId);
+                        if (matched) setSelectedQuoteForPDF(matched);
+                      }}
+                    />
+                  )
                 )}
 
                 {/* QUOTATIONS HISTORY VIEW */}
@@ -664,6 +859,7 @@ export default function App() {
                     onDeleteQuotation={handleDeleteQuotation}
                     onDeleteMultipleQuotations={handleDeleteMultipleQuotations}
                     uploadedFiles={formUploadedFiles}
+                    proofDocuments={proofDocuments}
                   />
                 )}
 
@@ -671,6 +867,8 @@ export default function App() {
                 {workspaceView === 'selected-quotes' && (
                   <M4SelectedQuotesView
                     userEmail={userEmail}
+                    onNavigateToTracking={() => setWorkspaceView('tracking')}
+                    onEditQuote={handleEditQuote}
                   />
                 )}
 

@@ -7,6 +7,9 @@ selectedQuoteRouter.use(requireAuth);
 
 const quoteDocsStore: Map<string, any[]> = new Map();
 
+// In-memory store for proof documents per customer (keyed by customer email)
+const proofDocsStore: Map<string, any[]> = new Map();
+
 /**
  * POST /api/selected-quotes
  * Customer selects a quote
@@ -14,7 +17,7 @@ const quoteDocsStore: Map<string, any[]> = new Map();
 selectedQuoteRouter.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.authUser!;
-    const { quoteId, companyName, companyId, originCode, destinationCode, transportMode, tariffAmount, currency, shipperEmail } = req.body;
+    const { quoteId, companyName, companyId, originCode, destinationCode, transportMode, tariffAmount, currency, shipperEmail, calculationSnapshot, availableQuotes } = req.body;
 
     if (!quoteId) {
       res.status(400).json({ success: false, error: 'quoteId is required' });
@@ -24,7 +27,7 @@ selectedQuoteRouter.post('/', async (req: Request, res: Response): Promise<void>
     const selectedQuoteId = `SEL-${Date.now()}-${await nextSequence('selected_quote', 'SEL')}`;
     const now = new Date().toISOString();
 
-    const doc = {
+    const doc: any = {
       selectedQuoteId,
       quoteId,
       customerId: authUser.id,
@@ -44,6 +47,16 @@ selectedQuoteRouter.post('/', async (req: Request, res: Response): Promise<void>
       createdAt: now,
       updatedAt: now,
     };
+
+    // Store immutable calculation snapshot for the selected quote
+    if (calculationSnapshot) {
+      doc.calculationSnapshot = calculationSnapshot;
+    }
+
+    // Store all available company quotes for agent visibility
+    if (Array.isArray(availableQuotes) && availableQuotes.length > 0) {
+      doc.availableQuotes = availableQuotes;
+    }
 
     const col = await selectedQuotesCollection();
     await col.insertOne(doc);
@@ -173,6 +186,113 @@ selectedQuoteRouter.get('/:id/documents', async (req: Request, res: Response): P
     const { id } = req.params;
     const docs = quoteDocsStore.get(id) || [];
     res.json({ success: true, data: docs });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/selected-quotes/proof-documents
+ * Customer uploads a proof document (Aadhaar, Company Verification, Address Proof)
+ * Stored per customer email for completeness checking
+ */
+selectedQuoteRouter.post('/proof-documents', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authUser = req.authUser!;
+    const { documentType, fileName, fileUrl, fileSize, mimeType } = req.body;
+
+    if (!documentType || !fileName || !fileUrl) {
+      res.status(400).json({ success: false, error: 'documentType, fileName, and fileUrl are required' });
+      return;
+    }
+
+    const validTypes = ['AADHAAR', 'COMPANY_VERIFICATION', 'ADDRESS_PROOF'];
+    if (!validTypes.includes(documentType)) {
+      res.status(400).json({ success: false, error: 'Invalid documentType. Must be AADHAAR, COMPANY_VERIFICATION, or ADDRESS_PROOF' });
+      return;
+    }
+
+    const customerEmail = authUser.email;
+    const docs = proofDocsStore.get(customerEmail) || [];
+
+    // Replace existing document of same type (no duplicates)
+    const filtered = docs.filter((d) => d.documentType !== documentType);
+    const doc = {
+      docId: `PROOF-${Date.now()}-${Math.round(Math.random() * 1e4)}`,
+      documentType,
+      fileName,
+      fileUrl,
+      fileSize: fileSize || 0,
+      mimeType: mimeType || '',
+      uploadedBy: customerEmail,
+      uploadedAt: new Date().toISOString(),
+      status: 'UPLOADED',
+    };
+    filtered.push(doc);
+    proofDocsStore.set(customerEmail, filtered);
+
+    res.json({ success: true, data: doc });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/selected-quotes/proof-documents
+ * Get all proof documents for the authenticated customer
+ */
+selectedQuoteRouter.get('/proof-documents', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authUser = req.authUser!;
+    const customerEmail = authUser.email;
+    const docs = proofDocsStore.get(customerEmail) || [];
+    res.json({ success: true, data: docs });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/selected-quotes/proof-documents/completeness/:customerEmail
+ * Freight Agent checks document completeness for a customer
+ */
+selectedQuoteRouter.get('/proof-documents/completeness/:customerEmail', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authUser = req.authUser!;
+    const role = (authUser.role || '').toLowerCase();
+    const isInternal = ['freight-agent', 'admin', 'business', 'broker', 'customs-officer', 'customer-officer'].includes(role);
+
+    if (!isInternal) {
+      res.status(403).json({ success: false, error: 'Only freight agents can check document completeness' });
+      return;
+    }
+
+    const { customerEmail } = req.params;
+    const docs = proofDocsStore.get(customerEmail) || [];
+
+    const requiredTypes = ['AADHAAR', 'COMPANY_VERIFICATION', 'ADDRESS_PROOF'];
+    const uploadedTypes = docs.map((d) => d.documentType);
+    const completeness = requiredTypes.map((t) => ({
+      documentType: t,
+      status: uploadedTypes.includes(t) ? 'UPLOADED' : 'NOT_UPLOADED',
+      fileName: docs.find((d) => d.documentType === t)?.fileName || null,
+      uploadedAt: docs.find((d) => d.documentType === t)?.uploadedAt || null,
+    }));
+
+    const uploadedCount = completeness.filter((c) => c.status === 'UPLOADED').length;
+    const missingCount = requiredTypes.length - uploadedCount;
+
+    res.json({
+      success: true,
+      data: {
+        customerEmail,
+        completeness,
+        uploadedCount,
+        missingCount,
+        totalRequired: requiredTypes.length,
+        isComplete: missingCount === 0,
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

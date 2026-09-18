@@ -37,6 +37,7 @@ export const M4CustomsVerificationView: React.FC = () => {
   const [customsActionReason, setCustomsActionReason] = useState('');
   const [customsSubmitting, setCustomsSubmitting] = useState(false);
   const [quoteDocuments, setQuoteDocuments] = useState<any[]>([]);
+  const [proofDocuments, setProofDocuments] = useState<any[]>([]);
 
   const fetchSelectedQuotes = async () => {
     try {
@@ -95,6 +96,24 @@ export const M4CustomsVerificationView: React.FC = () => {
     }
   };
 
+  // Fetch proof documents (Aadhaar, Company Verification, Address Proof) for the customer
+  const fetchProofDocuments = async (customerEmail: string) => {
+    try {
+      const token = localStorage.getItem('freighthub_session_token') || '';
+      const response = await fetch(`/api/selected-quotes/proof-documents/completeness/${encodeURIComponent(customerEmail)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setProofDocuments(result.data.completeness || []);
+      } else {
+        setProofDocuments([]);
+      }
+    } catch {
+      setProofDocuments([]);
+    }
+  };
+
   const fetchRequests = async () => {
     try {
       const token = localStorage.getItem('freighthub_session_token');
@@ -133,6 +152,11 @@ export const M4CustomsVerificationView: React.FC = () => {
   useEffect(() => {
     if (selectedQuoteDetail) {
       fetchQuoteDocuments(selectedQuoteDetail.selectedQuoteId);
+      // Fetch proof documents for this customer
+      const customerEmail = selectedQuoteDetail.customerEmail || selectedQuoteDetail.shipperEmail;
+      if (customerEmail) {
+        fetchProofDocuments(customerEmail);
+      }
     }
   }, [selectedQuoteDetail]);
 
@@ -426,28 +450,63 @@ export const M4CustomsVerificationView: React.FC = () => {
               {/* Customer Uploaded Documents */}
               <div>
                 <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Customer Proof Documents</h4>
-                {quoteDocuments.length > 0 ? (
-                  <div className="space-y-2">
-                    {quoteDocuments.map((doc: any) => (
-                      <div key={doc.docId} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                        {doc.mimeType?.includes('image') ? (
-                          <div className="p-2 bg-blue-100 rounded-lg"><Image className="w-5 h-5 text-blue-600" /></div>
+                {/* Show the 3 required proof document types */}
+                <div className="space-y-2 mb-4">
+                  {[
+                    { type: 'AADHAAR', label: 'Aadhaar / Identity Proof' },
+                    { type: 'COMPANY_VERIFICATION', label: 'Company Verification Proof' },
+                    { type: 'ADDRESS_PROOF', label: 'Business / Address Proof' },
+                  ].map((slot) => {
+                    const doc = proofDocuments.find((d: any) => d.documentType === slot.type);
+                    const isUploaded = doc?.status === 'UPLOADED';
+                    return (
+                      <div key={slot.type} className={`flex items-center gap-3 p-3 rounded-xl border ${
+                        isUploaded ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
+                      }`}>
+                        {isUploaded ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                         ) : (
-                          <div className="p-2 bg-red-100 rounded-lg"><FileIcon className="w-5 h-5 text-red-600" /></div>
+                          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-slate-800 truncate">{doc.fileName}</p>
-                          <p className="text-[10px] text-slate-400">{(doc.fileSize / 1024).toFixed(1)} KB · {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : ''}</p>
+                          <p className="text-sm font-bold text-slate-800">{slot.label}</p>
+                          {isUploaded ? (
+                            <p className="text-[10px] text-emerald-600 font-medium">{doc.fileName} · Uploaded</p>
+                          ) : (
+                            <p className="text-[10px] text-amber-600 font-medium">Not Uploaded</p>
+                          )}
                         </div>
-                        {doc.fileUrl && (
-                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-colors">
-                            <Eye className="w-3.5 h-3.5" /> Preview
-                          </a>
-                        )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
+                    );
+                  })}
+                </div>
+                {/* Show additional quote documents if any */}
+                {quoteDocuments.length > 0 && (
+                  <>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Additional Documents</p>
+                    <div className="space-y-2">
+                      {quoteDocuments.map((doc: any) => (
+                        <div key={doc.docId} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                          {doc.mimeType?.includes('image') ? (
+                            <div className="p-2 bg-blue-100 rounded-lg"><Image className="w-5 h-5 text-blue-600" /></div>
+                          ) : (
+                            <div className="p-2 bg-red-100 rounded-lg"><FileIcon className="w-5 h-5 text-red-600" /></div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-800 truncate">{doc.fileName}</p>
+                            <p className="text-[10px] text-slate-400">{(doc.fileSize / 1024).toFixed(1)} KB · {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : ''}</p>
+                          </div>
+                          {doc.fileUrl && (
+                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-colors">
+                              <Eye className="w-3.5 h-3.5" /> Preview
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {proofDocuments.length === 0 && quoteDocuments.length === 0 && (
                   <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center">
                     <FileText className="w-6 h-6 text-slate-300 mx-auto mb-2" />
                     <p className="text-xs text-slate-400">No documents uploaded by customer yet</p>
@@ -494,12 +553,49 @@ export const M4CustomsVerificationView: React.FC = () => {
                 <div className="flex items-center gap-2 mb-1">
                   <h2 className="text-lg font-black text-slate-900">{selectedRequest.requestId}</h2>
                   {getStatusBadge(selectedRequest.status)}
+                  {selectedRequest.resubmissionCount ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                      RESUBMITTED ({selectedRequest.resubmissionCount}x)
+                    </span>
+                  ) : null}
                 </div>
                 <p className="text-xs text-slate-500">
                   Quote Snapshot: <span className="font-mono font-medium">{selectedRequest.quoteId}</span> (v{selectedRequest.quoteSnapshot.version || 1})
                 </p>
               </div>
             </div>
+
+            {/* Resubmission History */}
+            {selectedRequest.rejectionHistory && selectedRequest.rejectionHistory.length > 0 && (
+              <div className="p-5 border-b border-slate-100 bg-amber-50">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-3">
+                  Previous Rejection History
+                </h4>
+                <div className="space-y-2">
+                  {selectedRequest.rejectionHistory.map((record, idx) => (
+                    <div key={idx} className="flex items-start gap-2 p-2 bg-white rounded-lg border border-amber-200">
+                      <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-700">
+                          Attempt {idx + 1} — Rejected by {record.role === 'customs-officer' ? 'Customs Officer' : 'Freight Agent'}
+                        </p>
+                        <p className="text-[10px] text-slate-500">{record.reason}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">
+                          {new Date(record.rejectedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} at{' '}
+                          {new Date(record.rejectedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {selectedRequest.lastResubmittedAt && (
+                  <p className="text-[10px] text-amber-700 font-bold mt-2">
+                    Customer resubmitted: {new Date(selectedRequest.lastResubmittedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} at{' '}
+                    {new Date(selectedRequest.lastResubmittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Shipment Details */}

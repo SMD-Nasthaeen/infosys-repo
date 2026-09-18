@@ -33,7 +33,11 @@ export interface ImportValidationReport {
   canCommit: boolean;
 }
 
-const VALID_PORTS = new Set(['INNSA', 'BOM', 'DEL', 'MAA', 'AEJEA', 'DXB', 'NLRTM', 'SGSIN', 'USNYC', 'LHR', 'SHA', 'HKG']);
+const VALID_PORTS = new Set([
+  'INNSA', 'BOM', 'DEL', 'MAA', 'MAA-SEA', 'AEJEA', 'DXB', 'NLRTM', 'SGSIN', 'USNYC', 'LHR',
+  'SHA', 'HKG', 'SIN', 'FRA', 'AMS', 'JFK', 'HYD', 'LKCMB',
+  'MAS', 'BZA', 'SBC', 'HYB', 'DEL-RAIL', 'MUM', 'BLR-RAIL', 'CBE', 'AMD', 'KOL',
+]);
 const VALID_CONTAINERS = new Set(['20GP', '40GP', '40HC', '20RF', '40RF', 'EURO_PALLET', 'LCL_SLOT']);
 const VALID_CURRENCIES = new Set(['INR', 'USD', 'EUR', 'AED', 'GBP']);
 

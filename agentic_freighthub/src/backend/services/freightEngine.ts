@@ -1,6 +1,11 @@
 // Freight Engine Service - Backend Calculation Logic based on PDF Specifications
 // Covers Phase 1 (Route Intelligence) & Phase 2 (Pricing, Surcharges & Margin)
 
+/** Strip mode suffixes (-SEA, -RAIL, -AIR) for route lookups */
+function npc(code: string): string {
+  return code?.replace(/-(SEA|RAIL|AIR)$/, '') || code;
+}
+
 export interface CargoItemInput {
   packageType?: string;
   containerSpec?: '20GP' | '40HC' | '40GP' | 'EURO_PALLET' | 'LCL_SLOT';
@@ -55,27 +60,30 @@ export function calculatePdfBackendTariff(params: DetailedTariffParams) {
   let maxDays = 10;
   let avgDays = 8;
 
-  if ((originPortCode === 'INNSA' || originPortCode === 'BOM') && (destinationPortCode === 'AEJEA' || destinationPortCode === 'DXB')) {
+  const o = npc(originPortCode);
+  const d = npc(destinationPortCode);
+
+  if ((o === 'INNSA' || o === 'BOM') && (d === 'AEJEA' || d === 'DXB')) {
     distanceValue = isOcean ? 1205 : 1920;
     minDays = isOcean ? 6 : 2;
     maxDays = isOcean ? 8 : 4;
     avgDays = isOcean ? 7 : 3;
-  } else if ((originPortCode === 'INNSA' || originPortCode === 'BOM') && destinationPortCode === 'NLRTM') {
+  } else if ((o === 'INNSA' || o === 'BOM') && d === 'NLRTM') {
     distanceValue = isOcean ? 6350 : 6850;
     minDays = isOcean ? 24 : 3;
     maxDays = isOcean ? 28 : 5;
     avgDays = isOcean ? 26 : 4;
-  } else if (originPortCode === 'MAA' && destinationPortCode === 'SGSIN') {
+  } else if (o === 'MAA' && d === 'SGSIN') {
     distanceValue = isOcean ? 1580 : 2900;
     minDays = isOcean ? 4 : 2;
     maxDays = isOcean ? 6 : 3;
     avgDays = isOcean ? 5 : 2;
-  } else if (destinationPortCode === 'USNYC') {
+  } else if (d === 'USNYC') {
     distanceValue = isOcean ? 8200 : 12500;
     minDays = isOcean ? 30 : 4;
     maxDays = isOcean ? 35 : 6;
     avgDays = isOcean ? 32 : 5;
-  } else if (destinationPortCode === 'LHR') {
+  } else if (d === 'LHR') {
     distanceValue = isOcean ? 6500 : 6710;
     minDays = isOcean ? 22 : 1;
     maxDays = isOcean ? 26 : 3;
@@ -114,10 +122,10 @@ export function calculatePdfBackendTariff(params: DetailedTariffParams) {
           containerSpecs.push(`${qty} × ${spec}`);
 
           let unitBase = 125000;
-          if (destinationPortCode === 'NLRTM') unitBase = 180000;
-          if (destinationPortCode === 'SGSIN') unitBase = 110000;
-          if (destinationPortCode === 'USNYC') unitBase = 240000;
-          if (originPortCode === 'DEL' || originPortCode === 'MAA') unitBase += 15000;
+          if (npc(destinationPortCode) === 'NLRTM') unitBase = 180000;
+          if (npc(destinationPortCode) === 'SGSIN') unitBase = 110000;
+          if (npc(destinationPortCode) === 'USNYC') unitBase = 240000;
+          if (npc(originPortCode) === 'DEL' || npc(originPortCode) === 'MAA') unitBase += 15000;
 
           if (spec === '40HC') unitBase = Math.round(unitBase * 1.60);
           else if (spec === '40GP') unitBase = Math.round(unitBase * 1.45);

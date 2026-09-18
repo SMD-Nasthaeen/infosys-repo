@@ -6,6 +6,11 @@ import { resolveRateCard, calculateAirWeightBreak, RateCardLine } from './rateRe
 import { resolveApplicableSurcharges } from './surcharges';
 import { resolveMarginPolicy, applyMarginPolicy, MarginEnforcementResult } from './marginPolicy';
 
+/** Strip mode suffixes (-SEA, -RAIL, -AIR) for route lookups */
+function npc(code: string): string {
+  return code?.replace(/-(SEA|RAIL|AIR)$/, '') || code;
+}
+
 export interface CostComponentLine {
   code: string;
   name: string;
@@ -97,9 +102,9 @@ export function buildCostBreakdown(input: BuildCostInput): CompleteCostBreakdown
       unitRate = customBaseRate;
     } else if (resolvedRate.rateLine) {
       unitRate = resolvedRate.rateLine.baseRateAmount;
-    } else if ((originPortCode === 'MAA' || originPortCode === 'INMAA') && (destinationPortCode === 'SGSIN' || destinationPortCode === 'SIN')) {
+    } else if ((npc(originPortCode) === 'MAA' || npc(originPortCode) === 'INMAA') && (npc(destinationPortCode) === 'SGSIN' || npc(destinationPortCode) === 'SIN')) {
       unitRate = containerSpec === '40HC' ? 50000 : (containerSpec === '20GP' ? 35000 : 45000);
-    } else if (destinationPortCode === 'AEJEA' || destinationPortCode === 'DXB') {
+    } else if (npc(destinationPortCode) === 'AEJEA' || npc(destinationPortCode) === 'DXB') {
       unitRate = containerSpec === '40HC' ? 120000 : 80000;
     } else {
       unitRate = containerSpec === '40HC' ? 50000 : 40000;

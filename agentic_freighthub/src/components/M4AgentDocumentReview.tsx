@@ -45,6 +45,56 @@ interface SelectedQuote {
   reviewedAt: string;
   createdAt: string;
   updatedAt: string;
+  calculationSnapshot?: {
+    baseFreight: number;
+    bafFuelSurcharge: number;
+    originThc: number;
+    documentationFee: number;
+    specialHandling: number;
+    insuranceFee: number;
+    discountAmount: number;
+    totalCost: number;
+    marginPercentage: number;
+    marginAmount: number;
+    finalSellPrice: number;
+    routeDetails: {
+      originPort: string;
+      destinationPort: string;
+      distance: string;
+      transitDays: string;
+      estimatedArrival: string;
+    };
+  } | null;
+  availableQuotes?: {
+    quoteId: string;
+    companyName: string;
+    companyId: string;
+    tariffAmount: number;
+    currency: string;
+    originCode: string;
+    destinationCode: string;
+    transportMode: string;
+    calculationSnapshot?: {
+      baseFreight: number;
+      bafFuelSurcharge: number;
+      originThc: number;
+      documentationFee: number;
+      specialHandling: number;
+      insuranceFee: number;
+      discountAmount: number;
+      totalCost: number;
+      marginPercentage: number;
+      marginAmount: number;
+      finalSellPrice: number;
+      routeDetails: {
+        originPort: string;
+        destinationPort: string;
+        distance: string;
+        transitDays: string;
+        estimatedArrival: string;
+      };
+    } | null;
+  }[];
 }
 
 interface M4AgentDocumentReviewProps {
@@ -84,10 +134,12 @@ export const M4AgentDocumentReview: React.FC<M4AgentDocumentReviewProps> = ({ co
   const [selectedDocTypes, setSelectedDocTypes] = useState<DocumentType[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [verifyRemarks, setVerifyRemarks] = useState<Record<string, string>>({});
+  const [expandedCompanyQuote, setExpandedCompanyQuote] = useState<string | null>(null);
 
   // Selected quotes from API
   const [selectedQuotes, setSelectedQuotes] = useState<SelectedQuote[]>([]);
   const [selectedQuoteDetail, setSelectedQuoteDetail] = useState<SelectedQuote | null>(null);
+  const [agentProofDocs, setAgentProofDocs] = useState<any[]>([]);
 
   // Fetch selected quotes from API
   const fetchSelectedQuotes = async () => {
@@ -102,6 +154,24 @@ export const M4AgentDocumentReview: React.FC<M4AgentDocumentReviewProps> = ({ co
       }
     } catch {
       // ignore
+    }
+  };
+
+  // Fetch proof document completeness for a customer
+  const fetchAgentProofDocs = async (customerEmail: string) => {
+    try {
+      const token = localStorage.getItem('freighthub_session_token') || '';
+      const response = await fetch(`/api/selected-quotes/proof-documents/completeness/${encodeURIComponent(customerEmail)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setAgentProofDocs(result.data.completeness || []);
+      } else {
+        setAgentProofDocs([]);
+      }
+    } catch {
+      setAgentProofDocs([]);
     }
   };
 
@@ -370,7 +440,8 @@ export const M4AgentDocumentReview: React.FC<M4AgentDocumentReviewProps> = ({ co
       });
       const result = await response.json();
       if (response.ok && result.success) {
-        setSuccessMsg(`Quote ${selectedQuoteId} ${action === 'APPROVED' ? 'approved' : 'rejected'} successfully!`);
+        const actionLabel = action === 'APPROVED' ? 'approved' : action === 'UNDER_REVIEW' ? 'moved to review' : 'rejected';
+        setSuccessMsg(`Quote ${selectedQuoteId} ${actionLabel} successfully!`);
         fetchSelectedQuotes();
       } else {
         setError(result.error || 'Failed to update quote');
@@ -479,7 +550,7 @@ export const M4AgentDocumentReview: React.FC<M4AgentDocumentReviewProps> = ({ co
                     {selectedQuotes.filter(q => q.status === 'SELECTED').map((item) => (
                       <button
                         key={item.selectedQuoteId}
-                        onClick={() => { setSelectedQuoteDetail(item); setSuccessMsg(null); setError(null); }}
+                        onClick={() => { setSelectedQuoteDetail(item); setSuccessMsg(null); setError(null); fetchAgentProofDocs(item.customerEmail || item.shipperEmail); }}
                         className={`w-full text-left p-3 rounded-2xl border transition-all ${
                           selectedQuoteDetail?.selectedQuoteId === item.selectedQuoteId
                             ? 'border-blue-500 bg-blue-50 shadow-md ring-1 ring-blue-500/20'
@@ -558,17 +629,24 @@ export const M4AgentDocumentReview: React.FC<M4AgentDocumentReviewProps> = ({ co
                     >
                       <div className="flex justify-between items-start mb-1">
                         <span className="font-mono text-xs font-black text-slate-900">{req.requestId}</span>
-                        <span
-                          className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
-                            req.status === 'PENDING'
-                              ? 'bg-slate-200 text-slate-800'
-                              : req.status === 'IN_PROGRESS'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {req.status.replace('_', ' ')}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          {req.resubmissionCount ? (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                              RESUBMIT
+                            </span>
+                          ) : null}
+                          <span
+                            className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                              req.status === 'PENDING'
+                                ? 'bg-slate-200 text-slate-800'
+                                : req.status === 'IN_PROGRESS'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {req.status.replace('_', ' ')}
+                          </span>
+                        </div>
                       </div>
                       <div className="text-[11px] text-slate-600 font-medium truncate">
                         Customer: {req.customerId}
@@ -710,6 +788,128 @@ export const M4AgentDocumentReview: React.FC<M4AgentDocumentReviewProps> = ({ co
                     </div>
                   </div>
 
+                  {/* Customer Document Completeness */}
+                  <div>
+                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Customer Document Completeness</h4>
+                    <p className="text-[10px] text-slate-400 mb-3">Documents are checked for presence only — not verified.</p>
+                    {agentProofDocs.length > 0 ? (
+                      <div className="space-y-2">
+                        {agentProofDocs.map((doc: any) => {
+                          const docLabels: Record<string, string> = {
+                            AADHAAR: 'Aadhaar / Identity Proof',
+                            COMPANY_VERIFICATION: 'Company Verification Proof',
+                            ADDRESS_PROOF: 'Business / Address Proof',
+                          };
+                          return (
+                            <div key={doc.documentType} className={`flex items-center gap-3 p-3 rounded-xl border ${
+                              doc.status === 'UPLOADED' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
+                            }`}>
+                              {doc.status === 'UPLOADED' ? (
+                                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                              ) : (
+                                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-slate-800">{docLabels[doc.documentType] || doc.documentType}</p>
+                                {doc.status === 'UPLOADED' ? (
+                                  <p className="text-[10px] text-emerald-600 font-medium">{doc.fileName} · Uploaded</p>
+                                ) : (
+                                  <p className="text-[10px] text-amber-600 font-medium">Missing</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="mt-2 text-[10px] font-bold text-slate-500">
+                          {agentProofDocs.filter((d: any) => d.status === 'UPLOADED').length} / {agentProofDocs.length} documents uploaded
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center">
+                        <FileText className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs text-slate-400">No proof documents found for this customer</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* All Company Quotes */}
+                  {selectedQuoteDetail.availableQuotes && selectedQuoteDetail.availableQuotes.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">All Company Quotes ({selectedQuoteDetail.availableQuotes.length})</h4>
+                      <div className="space-y-3">
+                        {selectedQuoteDetail.availableQuotes.map((companyQuote) => {
+                          const isSelected = companyQuote.quoteId === selectedQuoteDetail.quoteId;
+                          const isExpanded = expandedCompanyQuote === companyQuote.quoteId;
+                          const snapshot = companyQuote.calculationSnapshot;
+
+                          return (
+                            <div
+                              key={companyQuote.quoteId}
+                              className={`rounded-2xl border overflow-hidden transition-all ${
+                                isSelected
+                                  ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500/20'
+                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              {/* Quote Header */}
+                              <div className="p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-xs font-black text-slate-800">{companyQuote.quoteId}</span>
+                                    {isSelected && (
+                                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-blue-600 text-white">
+                                        CUSTOMER SELECTED
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-sm font-black text-slate-800">
+                                    {companyQuote.currency} {companyQuote.tariffAmount?.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                  <span className="font-bold">{companyQuote.companyName}</span>
+                                  <span>{companyQuote.originCode} → {companyQuote.destinationCode}</span>
+                                </div>
+                              </div>
+
+                              {/* Calculation Panel */}
+                              {snapshot && (
+                                <div className="border-t border-slate-100">
+                                  <button
+                                    onClick={() => setExpandedCompanyQuote(isExpanded ? null : companyQuote.quoteId)}
+                                    className="w-full flex items-center justify-between p-2.5 text-[10px] font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+                                  >
+                                    <span>Calculation Breakdown</span>
+                                    {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="px-3 pb-3 space-y-0.5">
+                                      <CalcRow label="Base Freight" value={`₹${snapshot.baseFreight.toLocaleString()}`} />
+                                      <CalcRow label="BAF" value={`₹${snapshot.bafFuelSurcharge.toLocaleString()}`} />
+                                      <CalcRow label="Origin THC" value={`₹${snapshot.originThc.toLocaleString()}`} />
+                                      <CalcRow label="Documentation" value={`₹${snapshot.documentationFee.toLocaleString()}`} />
+                                      {snapshot.specialHandling > 0 && <CalcRow label="Special Handling" value={`₹${snapshot.specialHandling.toLocaleString()}`} />}
+                                      {snapshot.insuranceFee > 0 && <CalcRow label="Insurance" value={`₹${snapshot.insuranceFee.toLocaleString()}`} />}
+                                      {snapshot.discountAmount > 0 && <CalcRow label="Discount" value={`-₹${snapshot.discountAmount.toLocaleString()}`} color="text-emerald-600" />}
+                                      <div className="border-t border-slate-200 my-1" />
+                                      <CalcRow label="Total Cost" value={`₹${snapshot.totalCost.toLocaleString()}`} bold />
+                                      <CalcRow label="Margin" value={`${snapshot.marginPercentage}% (₹${snapshot.marginAmount.toLocaleString()})`} />
+                                      <div className="border-t border-slate-200 my-1" />
+                                      <CalcRow label="Final Price" value={`₹${snapshot.finalSellPrice.toLocaleString()}`} bold color="text-blue-700" />
+                                      <div className="mt-2 pt-2 border-t border-slate-100">
+                                        <p className="text-[9px] text-slate-400 font-bold uppercase">Route: {snapshot.routeDetails.distance} · {snapshot.routeDetails.transitDays} transit</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Action */}
                   <div className="pt-4 border-t border-slate-200">
                     <p className="text-xs text-slate-500 mb-3">Review the quote details above, then start the verification process.</p>
@@ -744,6 +944,11 @@ export const M4AgentDocumentReview: React.FC<M4AgentDocumentReviewProps> = ({ co
                         >
                           {selectedRequest.status.replace('_', ' ')}
                         </span>
+                        {selectedRequest.resubmissionCount ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                            RESUBMITTED ({selectedRequest.resubmissionCount}x)
+                          </span>
+                        ) : null}
                       </div>
                       <p className="text-xs text-slate-500">
                         Customer: {selectedRequest.customerId} | Quote: {selectedRequest.quoteId}
@@ -824,6 +1029,38 @@ export const M4AgentDocumentReview: React.FC<M4AgentDocumentReviewProps> = ({ co
                     })()}
                   </div>
                 </div>
+
+                {/* Resubmission History */}
+                {selectedRequest.rejectionHistory && selectedRequest.rejectionHistory.length > 0 && (
+                  <div className="p-5 border-b border-slate-100 bg-amber-50">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-3">
+                      Resubmission History ({selectedRequest.rejectionHistory.length} rejection{selectedRequest.rejectionHistory.length > 1 ? 's' : ''})
+                    </h4>
+                    <div className="space-y-2">
+                      {selectedRequest.rejectionHistory.map((record, idx) => (
+                        <div key={idx} className="flex items-start gap-2 p-2 bg-white rounded-lg border border-amber-200">
+                          <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-700">
+                              Attempt {idx + 1} — Rejected by {record.role === 'customs-officer' ? 'Customs Officer' : 'Freight Agent'}
+                            </p>
+                            <p className="text-[10px] text-slate-500">{record.reason}</p>
+                            <p className="text-[9px] text-slate-400 mt-0.5">
+                              {new Date(record.rejectedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} at{' '}
+                              {new Date(record.rejectedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {selectedRequest.lastResubmittedAt && (
+                      <p className="text-[10px] text-amber-700 font-bold mt-2">
+                        Last resubmitted: {new Date(selectedRequest.lastResubmittedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} at{' '}
+                        {new Date(selectedRequest.lastResubmittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Document Checklist */}
                 <div className="p-5 border-b border-slate-100">
@@ -1132,3 +1369,10 @@ export const M4AgentDocumentReview: React.FC<M4AgentDocumentReviewProps> = ({ co
     </div>
   );
 };
+
+const CalcRow: React.FC<{ label: string; value: string; bold?: boolean; color?: string }> = ({ label, value, bold, color }) => (
+  <div className="flex items-center justify-between py-0.5">
+    <span className="text-[10px] text-slate-400 font-bold uppercase">{label}</span>
+    <span className={`text-[11px] ${bold ? 'font-black' : 'font-bold'} ${color || 'text-slate-700'}`}>{value}</span>
+  </div>
+);

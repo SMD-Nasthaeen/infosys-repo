@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Ship,
   Compass,
@@ -14,7 +14,10 @@ import {
   TrendingUp,
   Search,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  AlertTriangle,
+  FileText,
+  Upload
 } from 'lucide-react';
 import { FreightAgentSidebarNav, FreightAgentTab } from './FreightAgentSidebarNav';
 import { Milestone1RouteOperationsView } from './Milestone1RouteOperationsView';
@@ -156,6 +159,30 @@ export const FreightAgentPortalView: React.FC<FreightAgentPortalViewProps> = ({
   const [reviewingQuote, setReviewingQuote] = useState<SavedQuotation | null>(null);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState<boolean>(false);
   const [dispatchToast, setDispatchToast] = useState<string | null>(null);
+
+  // Document completeness tracking
+  const [docCompleteness, setDocCompleteness] = useState<Record<string, { completeness: Array<{ documentType: string; status: string; fileName: string | null }>; uploadedCount: number; missingCount: number; totalRequired: number; isComplete: boolean }>>({});
+
+  // Fetch document completeness for all customers with pending quotes
+  useEffect(() => {
+    if (activeTab !== 'quote-review') return;
+    const fetchCompleteness = async () => {
+      const token = localStorage.getItem('freighthub_session_token') || '';
+      const customerEmails = [...new Set(pendingReviewQuotes.map((q) => q.shipperEmail || q.formData?.email).filter(Boolean))];
+      for (const email of customerEmails) {
+        try {
+          const res = await fetch(`/api/selected-quotes/proof-documents/completeness/${encodeURIComponent(email)}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          const result = await res.json();
+          if (result.success) {
+            setDocCompleteness((prev) => ({ ...prev, [email]: result.data }));
+          }
+        } catch { /* ignore */ }
+      }
+    };
+    fetchCompleteness();
+  }, [activeTab, pendingReviewQuotes]);
 
   const handleOpenReview = (quote: SavedQuotation) => {
     setReviewingQuote(quote);
@@ -480,6 +507,85 @@ export const FreightAgentPortalView: React.FC<FreightAgentPortalViewProps> = ({
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Document Completeness Section */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-5">
+                <div className="border-b border-slate-100 pb-4">
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <FileCheck2 className="w-5 h-5 text-blue-600" />
+                    Document Completeness — Customer Proof Documents
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Check which required proof documents have been uploaded by customers. Documents are checked for presence only — not verified.
+                  </p>
+                </div>
+
+                {pendingReviewQuotes.length === 0 ? (
+                  <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-slate-600">No pending quotes to check documents for.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {[...new Set(pendingReviewQuotes.map((q) => q.shipperEmail || q.formData?.email).filter(Boolean))].map((customerEmail) => {
+                      const completeness = docCompleteness[customerEmail];
+                      const isComplete = completeness?.isComplete ?? false;
+                      const uploadedCount = completeness?.uploadedCount ?? 0;
+                      const missingCount = completeness?.missingCount ?? 3;
+                      const docSlots = completeness?.completeness ?? [
+                        { documentType: 'AADHAAR', status: 'NOT_UPLOADED', fileName: null },
+                        { documentType: 'COMPANY_VERIFICATION', status: 'NOT_UPLOADED', fileName: null },
+                        { documentType: 'ADDRESS_PROOF', status: 'NOT_UPLOADED', fileName: null },
+                      ];
+
+                      const docLabels: Record<string, string> = {
+                        AADHAAR: 'Aadhaar / Identity Proof',
+                        COMPANY_VERIFICATION: 'Company Verification Proof',
+                        ADDRESS_PROOF: 'Business / Address Proof',
+                      };
+
+                      return (
+                        <div key={customerEmail} className={`p-4 rounded-2xl border-2 transition-all ${
+                          isComplete ? 'border-emerald-200 bg-emerald-50/30' : 'border-amber-200 bg-amber-50/30'
+                        }`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-xs text-slate-900">{customerEmail}</span>
+                              {isComplete ? (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3" /> All Documents Uploaded
+                                </span>
+                              ) : (
+                                <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3" /> {missingCount} of {completeness?.totalRequired ?? 3} Missing
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-bold">{uploadedCount}/{completeness?.totalRequired ?? 3} uploaded</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            {docSlots.map((doc) => (
+                              <div key={doc.documentType} className={`flex items-center gap-2 p-2 rounded-lg text-xs ${
+                                doc.status === 'UPLOADED' ? 'bg-emerald-100/60 text-emerald-800' : 'bg-red-50 text-red-700'
+                              }`}>
+                                {doc.status === 'UPLOADED' ? (
+                                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                                ) : (
+                                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                )}
+                                <div className="min-w-0">
+                                  <p className="font-bold truncate">{docLabels[doc.documentType] || doc.documentType}</p>
+                                  {doc.fileName && <p className="text-[10px] opacity-70 truncate">{doc.fileName}</p>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

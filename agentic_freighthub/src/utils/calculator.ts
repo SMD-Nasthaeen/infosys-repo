@@ -1,6 +1,11 @@
 import { QuoteFormState, TariffBreakdown, CurrencyCode } from '../types';
 import { PORTS_AND_HUBS, PROMO_COUPONS } from '../data/freightData';
 
+/** Strip mode suffixes (-SEA, -RAIL, -AIR) to get base port code for route lookups */
+function npc(code: string): string {
+  return code?.replace(/-(SEA|RAIL|AIR)$/, '') || code;
+}
+
 const CURRENCY_RATES: Record<CurrencyCode, number> = {
   INR: 1,
   USD: 0.012,
@@ -31,35 +36,38 @@ export function formatCurrency(amount: number, currency: CurrencyCode = 'INR'): 
 export function getRouteDistanceAndTransit(originCode: string, destCode: string, mode: string) {
   const isOcean = mode === 'ocean';
   
-  if ((originCode === 'INNSA' || originCode === 'BOM') && (destCode === 'AEJEA' || destCode === 'DXB')) {
+  const o = npc(originCode);
+  const d = npc(destCode);
+
+  if ((o === 'INNSA' || o === 'BOM') && (d === 'AEJEA' || d === 'DXB')) {
     return {
       distanceText: isOcean ? '1,205 nm (Nautical)' : '1,920 km (Airway)',
       transitText: isOcean ? '6–8 d' : '2–4 d',
       days: isOcean ? 7 : 3,
     };
   }
-  if ((originCode === 'INNSA' || originCode === 'BOM') && destCode === 'NLRTM') {
+  if ((o === 'INNSA' || o === 'BOM') && d === 'NLRTM') {
     return {
       distanceText: isOcean ? '6,350 nm (Nautical)' : '6,850 km (Airway)',
       transitText: isOcean ? '24–28 d' : '3–5 d',
       days: isOcean ? 26 : 4,
     };
   }
-  if (originCode === 'MAA' && destCode === 'SGSIN') {
+  if (o === 'MAA' && d === 'SGSIN') {
     return {
       distanceText: isOcean ? '1,580 nm (Nautical)' : '2,900 km (Airway)',
       transitText: isOcean ? '4–6 d' : '2–3 d',
       days: isOcean ? 5 : 2,
     };
   }
-  if (destCode === 'USNYC') {
+  if (d === 'USNYC') {
     return {
       distanceText: isOcean ? '8,200 nm (Nautical)' : '12,500 km (Airway)',
       transitText: isOcean ? '30–35 d' : '4–6 d',
       days: isOcean ? 32 : 5,
     };
   }
-  if (destCode === 'LHR') {
+  if (d === 'LHR') {
     return {
       distanceText: isOcean ? '6,500 nm (Nautical)' : '6,710 km (Airway)',
       transitText: isOcean ? '22–26 d' : '1–3 d',
@@ -117,8 +125,8 @@ export function calculateTariffBreakdown(formData: QuoteFormState): TariffBreakd
 
   const originPortObj = PORTS_AND_HUBS.find((p) => p.code === originPortCode);
   const destPortObj = PORTS_AND_HUBS.find((p) => p.code === destinationPortCode);
-  const originPortName = originPortObj?.city || (originPortCode === 'MAA' ? 'Chennai' : originPortCode) || 'Origin';
-  const destPortName = destPortObj?.city || (destinationPortCode === 'SGSIN' ? 'Singapore' : destinationPortCode) || 'Destination';
+  const originPortName = originPortObj?.city || (npc(originPortCode) === 'MAA' ? 'Chennai' : originPortCode) || 'Origin';
+  const destPortName = destPortObj?.city || (npc(destinationPortCode) === 'SGSIN' ? 'Singapore' : destinationPortCode) || 'Destination';
 
   if (!isFormStarted) {
     return {
@@ -175,17 +183,17 @@ export function calculateTariffBreakdown(formData: QuoteFormState): TariffBreakd
   let defaultBaseRate = 50000; // Default for Chennai -> Singapore / standard corridor
 
   if (transportMode === 'ocean') {
-    if ((originPortCode === 'MAA' || originPortCode === 'INMAA') && (destinationPortCode === 'SGSIN' || destinationPortCode === 'SIN')) {
+    if ((npc(originPortCode) === 'MAA' || npc(originPortCode) === 'INMAA') && (npc(destinationPortCode) === 'SGSIN' || npc(destinationPortCode) === 'SIN')) {
       // Exact test case: Chennai -> Singapore
       if (primarySpec === '40HC') defaultBaseRate = 50000;
       else if (primarySpec === '20GP') defaultBaseRate = 35000;
       else if (primarySpec === '40GP') defaultBaseRate = 45000;
       else defaultBaseRate = 50000;
-    } else if (destinationPortCode === 'NLRTM') {
+    } else if (npc(destinationPortCode) === 'NLRTM') {
       defaultBaseRate = primarySpec === '40HC' ? 180000 : 120000;
-    } else if (destinationPortCode === 'USNYC') {
+    } else if (npc(destinationPortCode) === 'USNYC') {
       defaultBaseRate = primarySpec === '40HC' ? 240000 : 160000;
-    } else if (destinationPortCode === 'AEJEA' || destinationPortCode === 'DXB') {
+    } else if (npc(destinationPortCode) === 'AEJEA' || npc(destinationPortCode) === 'DXB') {
       defaultBaseRate = primarySpec === '40HC' ? 120000 : 80000;
     } else {
       defaultBaseRate = primarySpec === '40HC' ? 50000 : 40000;

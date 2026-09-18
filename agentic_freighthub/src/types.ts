@@ -27,6 +27,7 @@ export interface PortHub {
   country: string;
   type: 'sea' | 'air' | 'ground';
   locationLabel: string;
+  supportedModes: TransportMode[];
 }
 
 export interface PickupDeliveryPoint {
@@ -121,6 +122,44 @@ export interface TariffBreakdown {
   overallRiskLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
 }
 
+export interface CalculationSnapshot {
+  baseFreight: number;
+  bafFuelSurcharge: number;
+  originThc: number;
+  documentationFee: number;
+  specialHandling: number;
+  insuranceFee: number;
+  discountAmount: number;
+  totalCost: number;
+  marginPercentage: number;
+  marginAmount: number;
+  finalSellPrice: number;
+  routeDetails: {
+    origin: string;
+    destination: string;
+    distance: string;
+    transitDays: string;
+    estimatedArrival: string;
+  };
+  pricingFactors: {
+    transportMode: string;
+    containerSpec?: string;
+    containerCount: number;
+    incoterm: string;
+    totalWeightKg: number;
+    cargoSummary: string;
+  };
+  aiCalculation: {
+    ruleBasedPrice?: number;
+    aiPredictedPrice?: number;
+    recommendedPrice?: number;
+    weatherRiskScore?: number;
+    customsRiskScore?: number;
+    compositeRiskScore?: number;
+    overallRiskLevel?: string;
+  };
+}
+
 export interface SavedQuotation {
   id: string;
   shipmentId?: string;
@@ -160,6 +199,8 @@ export interface SavedQuotation {
   parentQuoteId?: string;
   modificationReason?: string;
   expiresAt?: string;
+  // Per-quote calculation snapshot
+  calculationSnapshot?: CalculationSnapshot;
 }
 
 export interface QuoteDraft {
@@ -281,6 +322,13 @@ export interface VerificationChecklist {
   commercial: boolean;
 }
 
+export interface RejectionRecord {
+  rejectedBy: string;
+  rejectedAt: string;
+  reason: string;
+  role: 'freight-agent' | 'customs-officer';
+}
+
 export interface VerificationRequest {
   requestId: string;
   quoteId: string;
@@ -292,6 +340,12 @@ export interface VerificationRequest {
   missingInfoRequested: string[];
   revisedQuoteId?: string;
   revisedQuoteSnapshot?: SavedQuotation;
+  rejectionReason?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionHistory?: RejectionRecord[];
+  resubmissionCount?: number;
+  lastResubmittedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -314,6 +368,19 @@ export interface Booking {
 export type DocumentType = 'COMMERCIAL_INVOICE' | 'PACKING_LIST' | 'CUSTOMS_DOCUMENT' | 'INSURANCE' | 'BILL_OF_LADING' | 'CERTIFICATE_OF_ORIGIN' | 'OTHER';
 export type DocumentStatus = 'REQUESTED' | 'UPLOADED' | 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED' | 'MISSING';
 export type VerificationArea = 'OPERATIONAL' | 'COMMERCIAL' | 'DOCUMENT';
+
+// Proof Document Types for Customer Quotation Form
+export type ProofDocumentType = 'AADHAAR' | 'COMPANY_VERIFICATION' | 'ADDRESS_PROOF';
+
+export interface ProofDocumentSlot {
+  documentType: ProofDocumentType;
+  label: string;
+  fileName?: string;
+  fileUrl?: string;
+  fileSize?: number;
+  status: 'NOT_UPLOADED' | 'UPLOADED';
+  uploadedAt?: string;
+}
 
 export interface DocumentRecord {
   documentId: string;

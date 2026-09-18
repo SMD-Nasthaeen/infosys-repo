@@ -26,45 +26,24 @@ export const CARGO_TYPES = [
 ];
 
 export const PORTS_AND_HUBS: PortHub[] = [
+  // ── OCEAN FREIGHT: Sea Ports ──────────────────────────────────────
   {
     code: 'INNSA',
     name: 'INNSA — Nhava Sheva (Jawaharlal Nehru Port), Mumbai, India',
     city: 'Mumbai',
     country: 'India',
     type: 'sea',
-    locationLabel: 'Nhava Sheva Sea Port'
+    locationLabel: 'Nhava Sheva Sea Port',
+    supportedModes: ['ocean'],
   },
   {
-    code: 'BOM',
-    name: 'BOM — Chhatrapati Shivaji Int\'l Airport, Mumbai, India',
-    city: 'Mumbai',
-    country: 'India',
-    type: 'air',
-    locationLabel: 'Mumbai Air Cargo Terminal'
-  },
-  {
-    code: 'DEL',
-    name: 'DEL — Indira Gandhi Int\'l Airport, New Delhi, India',
-    city: 'New Delhi',
-    country: 'India',
-    type: 'air',
-    locationLabel: 'Delhi Cargo Complex'
-  },
-  {
-    code: 'MAA',
+    code: 'MAA-SEA',
     name: 'MAA — Chennai Port, Tamil Nadu, India',
     city: 'Chennai',
     country: 'India',
     type: 'sea',
-    locationLabel: 'Chennai Port Container Hub'
-  },
-  {
-    code: 'BLR',
-    name: 'BLR — Kempegowda Int\'l Airport, Bengaluru, India',
-    city: 'Bengaluru',
-    country: 'India',
-    type: 'air',
-    locationLabel: 'Bengaluru Air Cargo Hub'
+    locationLabel: 'Chennai Port Container Hub',
+    supportedModes: ['ocean'],
   },
   {
     code: 'AEJEA',
@@ -72,15 +51,8 @@ export const PORTS_AND_HUBS: PortHub[] = [
     city: 'Dubai',
     country: 'United Arab Emirates',
     type: 'sea',
-    locationLabel: 'Jebel Ali Sea Gateway'
-  },
-  {
-    code: 'DXB',
-    name: 'DXB — Dubai Int\'l Airport, UAE',
-    city: 'Dubai',
-    country: 'United Arab Emirates',
-    type: 'air',
-    locationLabel: 'Dubai Airport Cargo Gateway'
+    locationLabel: 'Jebel Ali Sea Gateway',
+    supportedModes: ['ocean'],
   },
   {
     code: 'NLRTM',
@@ -88,7 +60,8 @@ export const PORTS_AND_HUBS: PortHub[] = [
     city: 'Rotterdam',
     country: 'Netherlands',
     type: 'sea',
-    locationLabel: 'Rotterdam Europort'
+    locationLabel: 'Rotterdam Europort',
+    supportedModes: ['ocean'],
   },
   {
     code: 'SGSIN',
@@ -96,7 +69,8 @@ export const PORTS_AND_HUBS: PortHub[] = [
     city: 'Singapore',
     country: 'Singapore',
     type: 'sea',
-    locationLabel: 'Singapore PSA Terminal'
+    locationLabel: 'Singapore PSA Terminal',
+    supportedModes: ['ocean'],
   },
   {
     code: 'USNYC',
@@ -104,7 +78,82 @@ export const PORTS_AND_HUBS: PortHub[] = [
     city: 'New York',
     country: 'United States',
     type: 'sea',
-    locationLabel: 'New York Container Depot'
+    locationLabel: 'New York Container Depot',
+    supportedModes: ['ocean'],
+  },
+  {
+    code: 'LKCMB',
+    name: 'LKCMB — Port of Colombo, Sri Lanka',
+    city: 'Colombo',
+    country: 'Sri Lanka',
+    type: 'sea',
+    locationLabel: 'Colombo Port Terminal',
+    supportedModes: ['ocean'],
+  },
+
+  // ── AIR FREIGHT: Airports ─────────────────────────────────────────
+  {
+    code: 'BOM',
+    name: 'BOM — Chhatrapati Shivaji Maharaj Int\'l Airport, Mumbai, India',
+    city: 'Mumbai',
+    country: 'India',
+    type: 'air',
+    locationLabel: 'Mumbai Air Cargo Terminal',
+    supportedModes: ['air', 'express'],
+  },
+  {
+    code: 'DEL',
+    name: 'DEL — Indira Gandhi Int\'l Airport, New Delhi, India',
+    city: 'New Delhi',
+    country: 'India',
+    type: 'air',
+    locationLabel: 'Delhi Cargo Complex',
+    supportedModes: ['air', 'express'],
+  },
+  {
+    code: 'MAA',
+    name: 'MAA — Chennai Int\'l Airport, Chennai, India',
+    city: 'Chennai',
+    country: 'India',
+    type: 'air',
+    locationLabel: 'Chennai Air Cargo Hub',
+    supportedModes: ['air', 'express'],
+  },
+  {
+    code: 'BLR',
+    name: 'BLR — Kempegowda Int\'l Airport, Bengaluru, India',
+    city: 'Bengaluru',
+    country: 'India',
+    type: 'air',
+    locationLabel: 'Bengaluru Air Cargo Hub',
+    supportedModes: ['air', 'express'],
+  },
+  {
+    code: 'HYD',
+    name: 'HYD — Rajiv Gandhi Int\'l Airport, Hyderabad, India',
+    city: 'Hyderabad',
+    country: 'India',
+    type: 'air',
+    locationLabel: 'Hyderabad Air Cargo Hub',
+    supportedModes: ['air', 'express'],
+  },
+  {
+    code: 'DXB',
+    name: 'DXB — Dubai Int\'l Airport, UAE',
+    city: 'Dubai',
+    country: 'United Arab Emirates',
+    type: 'air',
+    locationLabel: 'Dubai Airport Cargo Gateway',
+    supportedModes: ['air', 'express'],
+  },
+  {
+    code: 'SIN',
+    name: 'SIN — Singapore Changi Airport, Singapore',
+    city: 'Singapore',
+    country: 'Singapore',
+    type: 'air',
+    locationLabel: 'Changi Air Cargo Terminal',
+    supportedModes: ['air', 'express'],
   },
   {
     code: 'LHR',
@@ -112,8 +161,128 @@ export const PORTS_AND_HUBS: PortHub[] = [
     city: 'London',
     country: 'United Kingdom',
     type: 'air',
-    locationLabel: 'Heathrow Cargo Hub'
-  }
+    locationLabel: 'Heathrow Cargo Hub',
+    supportedModes: ['air', 'express'],
+  },
+  {
+    code: 'FRA',
+    name: 'FRA — Frankfurt Airport, Germany',
+    city: 'Frankfurt',
+    country: 'Germany',
+    type: 'air',
+    locationLabel: 'Frankfurt CargoCity',
+    supportedModes: ['air', 'express'],
+  },
+  {
+    code: 'AMS',
+    name: 'AMS — Amsterdam Airport Schiphol, Netherlands',
+    city: 'Amsterdam',
+    country: 'Netherlands',
+    type: 'air',
+    locationLabel: 'Schiphol Cargo Hub',
+    supportedModes: ['air', 'express'],
+  },
+  {
+    code: 'JFK',
+    name: 'JFK — John F. Kennedy Int\'l Airport, New York, USA',
+    city: 'New York',
+    country: 'United States',
+    type: 'air',
+    locationLabel: 'JFK Air Cargo Terminal',
+    supportedModes: ['air', 'express'],
+  },
+
+  // ── GROUND & RAIL: Logistics Hubs ─────────────────────────────────
+  {
+    code: 'MAS',
+    name: 'MAS — Chennai Central / Rail Freight Hub, Chennai, India',
+    city: 'Chennai',
+    country: 'India',
+    type: 'ground',
+    locationLabel: 'Chennai Rail Freight Hub',
+    supportedModes: ['ground'],
+  },
+  {
+    code: 'BZA',
+    name: 'BZA — Vijayawada Rail Freight Hub, India',
+    city: 'Vijayawada',
+    country: 'India',
+    type: 'ground',
+    locationLabel: 'Vijayawada Rail Hub',
+    supportedModes: ['ground'],
+  },
+  {
+    code: 'SBC',
+    name: 'SBC — Bengaluru Rail Freight Hub, India',
+    city: 'Bengaluru',
+    country: 'India',
+    type: 'ground',
+    locationLabel: 'Bengaluru Rail Freight Hub',
+    supportedModes: ['ground'],
+  },
+  {
+    code: 'HYB',
+    name: 'HYB — Hyderabad Logistics Hub, India',
+    city: 'Hyderabad',
+    country: 'India',
+    type: 'ground',
+    locationLabel: 'Hyderabad Logistics Hub',
+    supportedModes: ['ground'],
+  },
+  {
+    code: 'DEL-RAIL',
+    name: 'DEL — Delhi NCR Logistics Hub, India',
+    city: 'New Delhi',
+    country: 'India',
+    type: 'ground',
+    locationLabel: 'Delhi NCR Logistics Hub',
+    supportedModes: ['ground'],
+  },
+  {
+    code: 'MUM',
+    name: 'MUM — Mumbai Logistics Hub, India',
+    city: 'Mumbai',
+    country: 'India',
+    type: 'ground',
+    locationLabel: 'Mumbai Logistics Hub',
+    supportedModes: ['ground'],
+  },
+  {
+    code: 'BLR-RAIL',
+    name: 'BLR — Bengaluru Logistics Hub, India',
+    city: 'Bengaluru',
+    country: 'India',
+    type: 'ground',
+    locationLabel: 'Bengaluru Logistics Hub',
+    supportedModes: ['ground'],
+  },
+  {
+    code: 'CBE',
+    name: 'CBE — Coimbatore Logistics Hub, India',
+    city: 'Coimbatore',
+    country: 'India',
+    type: 'ground',
+    locationLabel: 'Coimbatore Logistics Hub',
+    supportedModes: ['ground'],
+  },
+  {
+    code: 'AMD',
+    name: 'AMD — Ahmedabad Logistics Hub, India',
+    city: 'Ahmedabad',
+    country: 'India',
+    type: 'ground',
+    locationLabel: 'Ahmedabad Logistics Hub',
+    supportedModes: ['ground'],
+  },
+  {
+    code: 'KOL',
+    name: 'KOL — Kolkata Logistics Hub, India',
+    city: 'Kolkata',
+    country: 'India',
+    type: 'ground',
+    locationLabel: 'Kolkata Logistics Hub',
+    supportedModes: ['ground'],
+  },
 ];
 
 export const PICKUP_POINTS: PickupDeliveryPoint[] = [
